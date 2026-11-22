@@ -315,6 +315,113 @@
     return c;
   }
 
+
+  // ---------------------------------------------------------------- pixel-art room
+  var ROOM = window.COZY_ROOM_META;
+  var roomImgs = {}, roomLoaded = 0;
+  if (ROOM) {
+    ['room-day', 'window-night'].forEach(function (name) {
+      var img = new Image();
+      img.onload = function () { roomLoaded++; renderRoom(); };
+      img.src = 'assets/room/' + name + '.png';
+      roomImgs[name] = img;
+    });
+  }
+  var roomLook = { blanket: '#d5b6d9', pattern: 'gingham' };
+
+  function blanketColour(x, y, B, pal, pattern) {
+    var lx = x - B.x, ly = y - B.y;
+    // pattern decides between base and light
+    var on = false;
+    if (pattern === 'gingham') {
+      var a = (x >> 2) & 1, b = (y >> 2) & 1;
+      if (a && b) return pal.shade;
+      on = a || b;
+    } else if (pattern === 'stripes') {
+      on = (ly % 5) < 2;
+    } else if (pattern === 'stars') {
+      var sx = lx % 11, sy = (ly + (Math.floor(lx / 11) % 2) * 5) % 10;
+      if ((sx === 5 && sy >= 3 && sy <= 5) || (sy === 4 && sx >= 4 && sx <= 6)) return '#fff1b8';
+    } else if (pattern === 'hearts') {
+      var hx = lx % 12, hy = (ly + (Math.floor(lx / 12) % 2) * 6) % 11;
+      var heart = ['.x.x.', 'xxxxx', '.xxx.', '..x..'];
+      if (hy >= 3 && hy < 7 && hx >= 4 && hx < 9 && heart[hy - 3][hx - 4] === 'x') return '#ffe3ea';
+    }
+    return on ? pal.light : pal.base;
+  }
+
+  function drawBlanket(ctx) {
+    var B = ROOM.blanket, base = roomLook.blanket || '#d5b6d9';
+    var pal = { base: base, light: light(base, 0.45), shade: shade(base, 0.2), dark: shade(base, 0.38), fold: light(base, 0.7) };
+    var x0 = B.x, x1 = B.x + B.w - 1, top = B.y, foldW = 7;
+    for (var x = x0; x <= x1; x++) {
+      var yb = B.y + B.h - 2 + ((x >> 2) & 1);       // scalloped bottom hem
+      for (var y = top; y <= yb; y++) {
+        var c;
+        if (x === x0 || x === x1 || y === top || y === yb) c = '#3a2630';
+        else if (x - x0 <= foldW) {                    // folded-back top sheet
+          c = x - x0 === foldW ? pal.dark : (y === top + 5 ? pal.shade : pal.fold);
+          if (x - x0 === 1) c = '#ffffff';
+        } else if (y === top + 5) c = pal.dark;          // edge of the mattress
+        else {
+          c = blanketColour(x, y, B, pal, roomLook.pattern);
+          if (y < top + 5) c = c === pal.base ? light(base, 0.2) : c;   // top surface is lit
+          if (x >= x1 - 1 || y >= yb - 1) c = c === pal.base ? pal.shade : (c === pal.light ? pal.base : c);
+        }
+        ctx.fillStyle = c;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // little wrinkles
+    ctx.fillStyle = pal.shade;
+    [[x0 + 30, top + 2], [x0 + 31, top + 3], [x0 + 58, top + 1], [x0 + 59, top + 2]].forEach(function (p) { ctx.fillRect(p[0], p[1], 2, 1); });
+  }
+
+  function drawLamp(ctx, on, night) {
+    var L = ROOM.lamp;
+    if (on) {
+      ctx.fillStyle = '#fff6c2';
+      ctx.fillRect(L.x + 4, L.y + 10, 10, 1);
+      ctx.fillStyle = night ? 'rgba(255,226,130,0.32)' : 'rgba(255,236,160,0.18)';
+      for (var r = 0; r < 15; r++) {
+        var half = 5 + Math.floor(r * 0.9);
+        ctx.fillRect(L.x + 9 - half, L.y + 11 + r, half * 2, 1);
+      }
+    } else {
+      ctx.fillStyle = '#9b8f7c';
+      ctx.fillRect(L.x + 7, L.y + 10, 4, 1);
+    }
+  }
+
+  function renderRoom() {
+    var c = document.getElementById('roomCanvas');
+    if (!c || !ROOM || roomLoaded < 2) return;
+    var room = c.closest('.room');
+    var night = room && room.classList.contains('room-night');
+    var lampOn = room && room.classList.contains('lamp-on');
+    var ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(roomImgs['room-day'], 0, 0);
+    if (night) ctx.drawImage(roomImgs['window-night'], 0, 0);
+    drawBlanket(ctx);
+    drawLamp(ctx, lampOn, night);
+  }
+
+  function watchRoom() {
+    var c = document.getElementById('roomCanvas');
+    var room = c && c.closest('.room');
+    if (!room || room._cozyWatched) return;
+    room._cozyWatched = true;
+    new MutationObserver(renderRoom).observe(room, { attributes: true, attributeFilter: ['class'] });
+    var lamp = document.getElementById('roomLamp');
+    var toggle = function () { var b = document.getElementById('lampToggle'); if (b) b.click(); };
+    if (lamp) {
+      lamp.addEventListener('click', toggle);
+      lamp.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    }
+  }
+
   // ---------------------------------------------------------------- main loop
   function tick() {
     if (document.hidden) return;
@@ -330,6 +437,9 @@
       accessory: st.accessory, skin: st.skin, hair: st.hair, outfit: st.outfit
     };
     cat.coat = st.catCoat || 'ginger';
+    roomLook = { blanket: st.blanket, pattern: st.blanketPattern || 'gingham' };
+    watchRoom();
+    renderRoom();
     tick();
   }
 
