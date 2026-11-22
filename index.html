@@ -123,5 +123,41 @@
   renderStats();renderTasks();renderGarden();renderChoices();renderShop();renderRoomDecor();updateTimer();newPaws();
 })();
 </script>
+
+<script>
+/* Independent navigation fallback: keeps page navigation working even if another feature script fails. */
+(function () {
+  function showCozyView(name) {
+    if (!name) return;
+    var target = document.getElementById('view-' + name);
+    if (!target) return;
+    document.querySelectorAll('.view').forEach(function (view) {
+      view.classList.toggle('active', view === target);
+    });
+    document.querySelectorAll('.nav[data-view]').forEach(function (button) {
+      button.classList.toggle('active', button.getAttribute('data-view') === name);
+    });
+    if (name === 'planner') {
+      var taskInput = document.getElementById('taskInput');
+      if (taskInput) taskInput.focus({ preventScroll: true });
+    }
+  }
+  document.addEventListener('click', function (event) {
+    var navButton = event.target.closest('[data-view]');
+    if (navButton) {
+      event.preventDefault();
+      showCozyView(navButton.getAttribute('data-view'));
+      return;
+    }
+    var goButton = event.target.closest('[data-go]');
+    if (goButton) {
+      event.preventDefault();
+      showCozyView(goButton.getAttribute('data-go'));
+    }
+  }, true);
+  window.cozyNookShowView = showCozyView;
+})();
+</script>
+
 </body>
 </html>
