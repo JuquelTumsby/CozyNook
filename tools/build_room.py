@@ -20,7 +20,7 @@ import json, os, random
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'assets', 'room')
-RW, RH = 320, 140
+RW, RH = 320, 180
 random.seed(7)
 
 O = '#3a2630'    # outline used everywhere
@@ -112,161 +112,20 @@ def hexc(h):
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
 
 
-# --------------------------------------------------------------------- pieces
-FLOOR_Y = 104
+# --------------------------------------------------------------------- the room
+# A 3/4 view (looking into the room from slightly above): back wall at the
+# top, a deep wooden floor below, and short side walls for depth.
+# The room starts mostly empty on purpose - players fill it from the shop.
+WALL_Y = 72          # where the back wall meets the floor
+SIDE = 18            # width of each side wall at the top
 
-
-def wall(c):
-    # upper wallpaper: warm butter with a tiny diamond motif
-    c.rect(0, 0, RW, FLOOR_Y, '#f6e2b8')
-    for y in range(4, 66, 10):
-        for x in range((y // 10) % 2 * 8 + 4, RW, 16):
-            c.px(x, y, '#e9cf9c'); c.px(x - 1, y + 1, '#e9cf9c'); c.px(x + 1, y + 1, '#e9cf9c'); c.px(x, y + 2, '#e9cf9c')
-            c.px(x, y + 1, '#fff2d3')
-    # top crown moulding
-    c.rect(0, 0, RW, 3, '#d9b98a'); c.hline(0, 3, RW, '#c7a271')
-    # teal wainscoting
-    c.rect(0, 70, RW, FLOOR_Y - 70, RAMP['teal'][2])
-    c.hline(0, 68, RW, RAMP['teal'][3]); c.hline(0, 69, RW, RAMP['teal'][3])
-    c.hline(0, 67, RW, O); c.hline(0, 70, RW, RAMP['teal'][1])
-    for x in range(6, RW, 22):
-        c.frame(x, 74, 16, 25, RAMP['teal'][1])
-        c.hline(x + 1, 75, 14, RAMP['teal'][3])
-        c.vline(x + 1, 75, 23, RAMP['teal'][3])
-    # skirting board
-    c.rect(0, FLOOR_Y - 4, RW, 4, '#fff4e4'); c.hline(0, FLOOR_Y - 4, RW, O); c.hline(0, FLOOR_Y - 1, RW, '#c9b49a')
-
-
-def floor(c):
-    c.rect(0, FLOOR_Y, RW, RH - FLOOR_Y, RAMP['wood'][2])
-    row_h = 6
-    for i, y in enumerate(range(FLOOR_Y, RH, row_h)):
-        c.hline(0, y, RW, RAMP['wood'][0] if i == 0 else RAMP['wood'][1])
-        c.hline(0, y + 1, RW, RAMP['wood'][3])
-        off = (i * 23) % 40
-        for x in range(off, RW, 40):
-            c.vline(x, y + 1, row_h - 1, RAMP['wood'][1])
-            c.vline(x + 1, y + 1, row_h - 1, RAMP['wood'][3])
-        # wood grain flecks
-        for _ in range(10):
-            gx = random.randrange(0, RW); gy = y + random.randrange(2, row_h)
-            c.hline(gx, gy, random.randrange(2, 6), RAMP['wood'][1])
-    # soft shadow under the wall
-    c.dither(0, FLOOR_Y + 1, RW, 1, RAMP['wood'][1], RAMP['wood'][2])
-
-
-def window(c, night=False):
-    x, y, w, h = 98, 10, 76, 52
-    # frame
-    c.box(x, y, w, h, 'wood')
-    sx, sy, sw, sh = x + 4, y + 4, w - 8, h - 8
-    if not night:
-        bands = ['#6ab8e6', '#7fc6ee', '#96d4f3', '#b2e2f7']
-        for i, col in enumerate(bands):
-            c.rect(sx, sy + i * 6, sw, sh - i * 6, col)
-            if i:
-                c.dither(sx, sy + i * 6, sw, 1, bands[i - 1], col)
-        # sun
-        c.ellipse(sx + 54, sy + 9, 4, 4, '#ffe58a', '#ffcf4d')
-        # clouds
-        for cx, cy in ((sx + 14, sy + 8), (sx + 40, sy + 16)):
-            c.ellipse(cx, cy, 6, 2, '#ffffff'); c.ellipse(cx - 4, cy + 1, 4, 2, '#ffffff'); c.ellipse(cx + 5, cy + 1, 4, 2, '#ffffff')
-            c.hline(cx - 7, cy + 3, 16, '#d6edf8')
-        hill1, hill2, tree = '#8fd07a', '#5fae5c', '#3f8a45'
-    else:
-        bands = ['#1b2150', '#232b63', '#2d3874', '#3a4785']
-        for i, col in enumerate(bands):
-            c.rect(sx, sy + i * 6, sw, sh - i * 6, col)
-            if i:
-                c.dither(sx, sy + i * 6, sw, 1, bands[i - 1], col)
-        # moon
-        c.ellipse(sx + 52, sy + 9, 5, 5, '#fff2c2', '#f3d98a')
-        c.ellipse(sx + 55, sy + 7, 4, 4, bands[0])
-        for (px_, py_) in ((sx + 6, sy + 5), (sx + 18, sy + 12), (sx + 30, sy + 4), (sx + 40, sy + 15), (sx + 12, sy + 20), (sx + 62, sy + 22), (sx + 25, sy + 25)):
-            c.px(px_, py_, '#ffffff')
-            if (px_ + py_) % 3 == 0:
-                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    c.px(px_ + dx, py_ + dy, '#9fb0ff')
-        hill1, hill2, tree = '#2f5b5a', '#244848', '#1a3a3a'
-    # hills
-    for xx in range(sx, sx + sw):
-        t = xx - sx
-        top1 = sy + 26 + int(4 * __import__('math').sin(t / 9.0))
-        top2 = sy + 34 + int(3 * __import__('math').sin(t / 6.0 + 2))
-        c.vline(xx, top1, sy + sh - top1, hill1)
-        c.vline(xx, top2, sy + sh - top2, hill2)
-    for tx in (sx + 8, sx + 21, sx + 50, sx + 60):
-        c.rect(tx, sy + 27, 3, 5, tree); c.rect(tx - 1, sy + 29, 5, 3, tree); c.vline(tx + 1, sy + 32, 3, '#5e3823')
-    # glass shine
-    if not night:
-        for k in range(6):
-            c.px(sx + 4 + k, sy + 12 - k, '#e7f6ff'); c.px(sx + 5 + k, sy + 12 - k, '#e7f6ff')
-    # mullions
-    c.rect(x + w // 2 - 2, y + 2, 4, h - 4, RAMP['wood'][2]); c.vline(x + w // 2 - 2, y + 4, h - 8, RAMP['wood'][3])
-    c.vline(x + w // 2 + 1, y + 4, h - 8, RAMP['wood'][1])
-    c.rect(x + 2, y + h // 2 - 1, w - 4, 3, RAMP['wood'][2]); c.hline(x + 4, y + h // 2 - 1, w - 8, RAMP['wood'][3])
-    c.hline(x + 4, y + h // 2 + 1, w - 8, RAMP['wood'][1])
-    c.frame(sx - 1, sy - 1, sw + 2, sh + 2, RAMP['wood'][0])
-
-
-def window_extras(c):
-    x, y, w, h = 98, 10, 76, 52
-    # sill
-    c.box(x - 5, y + h - 1, w + 10, 5, 'cream')
-    # curtain rod
-    c.rect(x - 14, y - 4, w + 28, 3, RAMP['yellow'][1]); c.hline(x - 14, y - 4, w + 28, RAMP['yellow'][3])
-    c.frame(x - 15, y - 5, w + 30, 5, O)
-    c.ellipse(x - 16, y - 3, 2, 2, RAMP['yellow'][2], O); c.ellipse(x + w + 15, y - 3, 2, 2, RAMP['yellow'][2], O)
-    # curtains with folds, tied back
-    for side in (0, 1):
-        cx0 = x - 12 if side == 0 else x + w - 4
-        for yy in range(y - 1, y + h + 10):
-            t = yy - y
-            width = 16 if t < 22 else (10 if t < 28 else 13 + (t - 28) // 3)
-            width = min(width, 18)
-            xs = cx0 if side == 0 else cx0 + 16 - width
-            for k in range(width):
-                xx = xs + k
-                fold = (k + (0 if side == 0 else 1)) % 5
-                col = RAMP['curtain'][3] if fold == 1 else RAMP['curtain'][1] if fold == 4 else RAMP['curtain'][2]
-                c.px(xx, yy, col)
-            c.px(xs, yy, O); c.px(xs + width - 1, yy, O)
-        c.hline(cx0 if side == 0 else cx0 + 16 - 14, y + h + 10, 14, O)
-        # tie-back
-        tx = cx0 + 2 if side == 0 else cx0 + 4
-        c.rect(tx, y + 24, 10, 3, RAMP['yellow'][2]); c.frame(tx - 1, y + 23, 12, 5, O)
-    # flowers on the sill
-    for i, (fx, col) in enumerate(((x + 6, '#ef6b8a'), (x + 62, '#f7c948'))):
-        c.box(fx, y + h - 7, 8, 7, 'pot')
-        c.vline(fx + 3, y + h - 12, 5, RAMP['leaf'][1]); c.px(fx + 2, y + h - 10, RAMP['leaf'][2]); c.px(fx + 5, y + h - 9, RAMP['leaf'][2])
-        c.px(fx + 4, y + h - 10, RAMP['leaf'][2])
-        for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
-            c.px(fx + 3 + dx, y + h - 14 + dy, col)
-        c.px(fx + 3, y + h - 14, '#fff4b8')
-
-
-def books_row(c, x, y, w, h, seed):
-    r = random.Random(seed)
-    cols = ['#e2554e', '#f2b33d', '#4f8fd0', '#6cbf6a', '#9a6bc9', '#ef8db0', '#3c6e9e', '#f08a3e']
-    xx = x
-    while xx < x + w - 3:
-        bw = r.choice((3, 3, 4, 4, 5))
-        bh = h - r.choice((0, 1, 2, 3))
-        if xx + bw > x + w:
-            break
-        col = r.choice(cols)
-        if r.random() < 0.15 and xx + bw + 4 < x + w:   # leaning book
-            for k in range(bh - 1):
-                c.hline(xx + k // 4, y + h - 1 - k, bw, col)
-            xx += bw + 3
-            continue
-        c.rect(xx, y + h - bh, bw, bh, col)
-        c.vline(xx, y + h - bh, bh, O)
-        c.hline(xx, y + h - bh, bw, O)
-        c.hline(xx + 1, y + h - bh + 2, bw - 1, '#fff4e4')
-        c.vline(xx + bw - 1, y + h - bh + 1, bh - 1, shade_of(col))
-        xx += bw
-    c.vline(xx, y, h, O)
+RAMP.update({
+    'rose':  ('#7a4a6a', '#c98fae', '#e7b3c4', '#f4cfdb'),
+    'mauve': ('#5e3a5a', '#9a6a92', '#b98aa8', '#d2a7c2'),
+    'oak':   ('#5e3823', '#94613d', '#c08552', '#dca06c'),
+    'sheet': ('#9a8aa8', '#ddd0e8', '#fbf6ff', '#ffffff'),
+    'chair': ('#5e2f52', '#b65d8f', '#e083b3', '#f6a9cf'),
+})
 
 
 def shade_of(col):
@@ -274,255 +133,235 @@ def shade_of(col):
     return '#%02x%02x%02x' % (int(r * .72), int(g * .68), int(b * .78))
 
 
-def bookshelf(c):
-    x, y, w, h = 10, 26, 46, FLOOR_Y - 26 + 2
-    c.box(x, y, w, h, 'dwood')
-    c.rect(x + 3, y + 3, w - 6, h - 6, RAMP['dwood'][0])
-    shelves = [y + 3, y + 21, y + 39, y + 57]
-    for i, sy in enumerate(shelves):
-        sh = 16
-        if i == 3:
-            sh = h - 6 - 54
-        c.rect(x + 3, sy, w - 6, sh, '#4a2a1d')
-        c.dither(x + 3, sy, w - 6, 1, '#3a2018', '#4a2a1d')
-        if i == 1:
-            books_row(c, x + 3, sy + 3, 24, sh - 3, 11)
-            # little trophy
-            c.rect(x + 32, sy + 12, 6, 2, RAMP['yellow'][1]); c.rect(x + 34, sy + 9, 2, 3, RAMP['yellow'][2])
-            c.rect(x + 31, sy + 4, 8, 5, RAMP['yellow'][2]); c.hline(x + 32, sy + 5, 2, RAMP['yellow'][3]); c.frame(x + 31, sy + 4, 8, 5, O)
-            c.px(x + 30, sy + 5, O); c.px(x + 39, sy + 5, O)
-        elif i == 2:
-            books_row(c, x + 13, sy + 3, w - 16, sh - 3, 21)
-            # globe
-            c.ellipse(x + 8, sy + 8, 4, 4, '#4f8fd0', O); c.rect(x + 6, sy + 6, 3, 2, '#6cbf6a'); c.px(x + 9, sy + 9, '#6cbf6a')
-            c.rect(x + 6, sy + 13, 5, 2, RAMP['wood'][1])
-        elif i == 0:
-            books_row(c, x + 3, sy + 3, w - 6, sh - 3, 5)
-        else:
-            # storage boxes
-            c.box(x + 5, sy + 3, 16, sh - 3, 'blue'); c.rect(x + 11, sy + 6, 4, 2, '#fff4e4')
-            c.box(x + 23, sy + 3, 16, sh - 3, 'curtain'); c.rect(x + 29, sy + 6, 4, 2, '#fff4e4')
-        # shelf board
-        c.rect(x + 2, sy + sh, w - 4, 2, RAMP['dwood'][3]); c.hline(x + 2, sy + sh + 1, w - 4, RAMP['dwood'][1])
-    # plant on top
-    plant(c, x + 30, y - 2, big=False)
+def side_bottom(x):
+    """y of the floor line on the side walls (it slopes towards the viewer)."""
+    if x < SIDE:
+        return WALL_Y + int((SIDE - x) * 1.6)
+    if x >= RW - SIDE:
+        return WALL_Y + int((x - (RW - SIDE - 1)) * 1.6)
+    return WALL_Y
 
 
-def leaf(c, cx, cy, dirx, size):
-    """A pointed pixel leaf. dirx = -1 (points left) / 1 (points right)."""
-    rx, ry = size + 1, size - 1
-    c.ellipse(cx, cy, rx, ry, RAMP['leaf'][2], O)
-    c.px(cx + dirx * (rx + 1), cy - 1, O)
-    c.hline(cx - rx + 2 if dirx > 0 else cx, cy, rx - 1, RAMP['leaf'][1])   # vein
-    c.px(cx - dirx, cy - ry + 1, RAMP['leaf'][3]); c.px(cx, cy - ry + 1, RAMP['leaf'][3])
+def walls(c):
+    # back wall: dusty rose wallpaper with soft stripes
+    for x in range(RW):
+        col = RAMP['rose'][2] if (x // 6) % 2 == 0 else '#ebbccb'
+        c.vline(x, 0, WALL_Y, col)
+    # little dotted motif
+    for y in range(8, 44, 12):
+        for x in range((y // 12) % 2 * 6 + 3, RW, 12):
+            c.px(x, y, RAMP['rose'][3])
+    # lower panelling
+    c.rect(0, 46, RW, WALL_Y - 46, RAMP['mauve'][2])
+    c.hline(0, 44, RW, RAMP['mauve'][3]); c.hline(0, 45, RW, RAMP['mauve'][1]); c.hline(0, 43, RW, O)
+    for x in range(10, RW, 26):
+        c.frame(x, 49, 18, 17, RAMP['mauve'][1]); c.hline(x + 1, 50, 16, RAMP['mauve'][3]); c.vline(x + 1, 50, 15, RAMP['mauve'][3])
+    # skirting
+    c.rect(0, WALL_Y - 4, RW, 4, '#fbf2ff'); c.hline(0, WALL_Y - 4, RW, O); c.hline(0, WALL_Y - 1, RW, '#cdb8d8')
+    # ceiling trim
+    c.rect(0, 0, RW, 3, RAMP['mauve'][1]); c.hline(0, 3, RW, O)
 
 
-def plant(c, x, y, big=False):
-    """x, y = bottom-left of the pot."""
-    pw, ph = (13, 11) if big else (10, 8)
-    mid = x + pw // 2
-    if big:
-        leaves = [(0, -25, 1, 4), (-7, -19, -1, 5), (7, -17, 1, 5), (-9, -9, -1, 5), (9, -8, 1, 5), (-2, -12, -1, 4), (3, -4, 1, 4), (-5, -2, -1, 4)]
+def side_walls(c):
+    for x in list(range(SIDE)) + list(range(RW - SIDE, RW)):
+        bottom = side_bottom(x)
+        left = x < SIDE
+        base = '#c993ab' if left else '#d8a2b9'
+        c.vline(x, 0, bottom, base)
+        c.vline(x, bottom - 4, 4, '#e6d6ee')
+        c.px(x, bottom - 5, O)
+        c.px(x, 46 + (bottom - WALL_Y), RAMP['mauve'][1])
+    # corner lines
+    c.vline(SIDE, 0, WALL_Y, O); c.vline(RW - SIDE - 1, 0, WALL_Y, O)
+
+
+def floor(c):
+    c.rect(0, WALL_Y, RW, RH - WALL_Y, RAMP['oak'][2])
+    y, i = WALL_Y, 0
+    while y < RH:
+        h = 6 + (y - WALL_Y) // 28            # planks look a bit deeper near the viewer
+        c.hline(0, y, RW, RAMP['oak'][0] if i == 0 else RAMP['oak'][1])
+        c.hline(0, y + 1, RW, RAMP['oak'][3])
+        off = (i * 29) % 46
+        for x in range(off, RW, 46):
+            c.vline(x, y + 1, h - 1, RAMP['oak'][1]); c.vline(x + 1, y + 1, h - 1, RAMP['oak'][3])
+        r = random.Random(i)
+        for _ in range(9):
+            gx = r.randrange(0, RW); gy = y + r.randrange(2, max(3, h))
+            c.hline(gx, gy, r.randrange(2, 6), RAMP['oak'][1])
+        y += h; i += 1
+    # contact shadow along the wall
+    c.dither(0, WALL_Y + 1, RW, 2, RAMP['oak'][1], RAMP['oak'][2])
+
+
+WIN = {'x': 120, 'y': 9, 'w': 62, 'h': 40}
+
+
+def window(c, night=False):
+    x, y, w, h = WIN['x'], WIN['y'], WIN['w'], WIN['h']
+    c.box(x, y, w, h, 'cream')
+    sx, sy, sw, sh = x + 4, y + 4, w - 8, h - 8
+    if night:
+        bands = ['#1b2150', '#232b63', '#2d3874', '#3a4785']
     else:
-        leaves = [(0, -11, 1, 3), (-5, -6, -1, 4), (5, -5, 1, 4), (-1, -2, -1, 3)]
-    for lx, ly, d, sz in leaves:
-        cx, cy = mid + lx, y - ph + ly
-        # stem from the pot to the leaf
-        c.vline(mid + lx // 2, cy + 1, max(0, y - ph - cy - 1), RAMP['leaf'][1])
-    for lx, ly, d, sz in leaves:
-        leaf(c, mid + lx, y - ph + ly, d, sz)
-    c.box(x, y - ph, pw, ph, 'pot')
-    c.rect(x - 1, y - ph, pw + 2, 3, RAMP['pot'][2]); c.hline(x, y - ph + 1, pw, RAMP['pot'][3]); c.frame(x - 1, y - ph, pw + 2, 3, O)
+        bands = ['#6ab8e6', '#7fc6ee', '#96d4f3', '#b2e2f7']
+    for k, col in enumerate(bands):
+        c.rect(sx, sy + k * 5, sw, sh - k * 5, col)
+        if k:
+            c.dither(sx, sy + k * 5, sw, 1, bands[k - 1], col)
+    if night:
+        c.ellipse(sx + 41, sy + 8, 5, 5, '#fff2c2', '#f3d98a')
+        c.ellipse(sx + 44, sy + 6, 4, 4, bands[0])
+        for px_, py_ in ((sx + 5, sy + 4), (sx + 16, sy + 10), (sx + 27, sy + 3), (sx + 33, sy + 15), (sx + 10, sy + 17), (sx + 50, sy + 20)):
+            c.px(px_, py_, '#ffffff')
+            if (px_ + py_) % 2 == 0:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    c.px(px_ + dx, py_ + dy, '#9fb0ff')
+        hill1, hill2, tree = '#2f5b5a', '#244848', '#1a3a3a'
+    else:
+        c.ellipse(sx + 42, sy + 8, 4, 4, '#ffe58a', '#ffcf4d')
+        for cx, cy in ((sx + 12, sy + 7), (sx + 32, sy + 13)):
+            c.ellipse(cx, cy, 5, 2, '#ffffff'); c.ellipse(cx - 3, cy + 1, 3, 2, '#ffffff'); c.ellipse(cx + 4, cy + 1, 3, 2, '#ffffff')
+        hill1, hill2, tree = '#8fd07a', '#5fae5c', '#3f8a45'
+    import math
+    for xx in range(sx, sx + sw):
+        t = xx - sx
+        top1 = sy + 20 + int(3 * math.sin(t / 8.0))
+        top2 = sy + 26 + int(2 * math.sin(t / 5.0 + 2))
+        c.vline(xx, top1, sy + sh - top1, hill1)
+        c.vline(xx, top2, sy + sh - top2, hill2)
+    for tx in (sx + 6, sx + 18, sx + 40):
+        c.rect(tx, sy + 20, 3, 4, tree); c.rect(tx - 1, sy + 22, 5, 2, tree)
+    # frame bars
+    c.rect(x + w // 2 - 1, y + 2, 3, h - 4, RAMP['cream'][2]); c.vline(x + w // 2 + 1, y + 4, h - 8, RAMP['cream'][1])
+    c.rect(x + 2, y + h // 2 - 1, w - 4, 3, RAMP['cream'][2]); c.hline(x + 4, y + h // 2 + 1, w - 8, RAMP['cream'][1])
+    c.frame(sx - 1, sy - 1, sw + 2, sh + 2, RAMP['cream'][0])
 
 
-def hanging_plant(c, x):
-    c.vline(x, 3, 14, '#8a6a4a')
-    c.vline(x - 4, 3, 13, '#8a6a4a'); c.vline(x + 4, 3, 13, '#8a6a4a')
-    c.box(x - 6, 16, 13, 8, 'cream')
-    for k, (dx, ln) in enumerate(((-5, 16), (-2, 22), (2, 18), (5, 12), (0, 10))):
-        for t in range(ln):
-            yy = 22 + t
-            xx = x + dx + (1 if (t // 3) % 2 else 0)
-            if t % 3 == 0:
-                c.px(xx - 1, yy, RAMP['leaf'][2]); c.px(xx + 1, yy, RAMP['leaf'][3])
-                c.px(xx - 2, yy, O); c.px(xx + 2, yy, O)
-            c.px(xx, yy, RAMP['leaf'][1])
-    for dx in (-5, -2, 2, 5):
-        c.ellipse(x + dx, 22, 2, 2, RAMP['leaf'][2], O)
+def window_extras(c):
+    x, y, w, h = WIN['x'], WIN['y'], WIN['w'], WIN['h']
+    c.box(x - 5, y + h - 1, w + 10, 5, 'cream')            # sill
+    c.rect(x - 14, y - 4, w + 28, 3, RAMP['yellow'][1]); c.hline(x - 14, y - 4, w + 28, RAMP['yellow'][3])
+    c.frame(x - 15, y - 5, w + 30, 5, O)
+    for side in (0, 1):
+        cx0 = x - 12 if side == 0 else x + w - 2
+        for yy in range(y - 1, y + h + 8):
+            t = yy - y
+            width = 14 if t < 18 else (8 if t < 24 else min(13, 9 + (t - 24) // 3))
+            xs = cx0 if side == 0 else cx0 + 14 - width
+            for k in range(width):
+                fold = (k + side) % 4
+                col = RAMP['purple'][3] if fold == 1 else RAMP['purple'][1] if fold == 3 else RAMP['purple'][2]
+                c.px(xs + k, yy, col)
+            c.px(xs, yy, O); c.px(xs + width - 1, yy, O)
+        c.hline(cx0 if side == 0 else cx0 + 14 - 13, y + h + 8, 13, O)
+        tx = cx0 + 1 if side == 0 else cx0 + 4
+        c.rect(tx, y + 20, 9, 3, RAMP['yellow'][2]); c.frame(tx - 1, y + 19, 11, 5, O)
+
+
+def door(c):
+    x, y, w = 266, 18, 28
+    c.box(x - 3, y - 3, w + 6, WALL_Y - y + 3, 'cream')
+    c.box(x, y, w, WALL_Y - y, 'oak')
+    for py, ph in ((y + 4, 18), (y + 26, 22)):
+        c.frame(x + 4, py, w - 8, ph, RAMP['oak'][1]); c.hline(x + 5, py + 1, w - 10, RAMP['oak'][3])
+    c.ellipse(x + w - 6, y + 28, 1, 1, '#f7c948', O)
+
+
+BED = {'x': 22, 'y': 38, 'w': 80, 'h': 86}
+BLANKET = {'x': 25, 'y': 80, 'w': 74, 'h': 38, 'top': 26}
 
 
 def bed(c):
-    # headboard
-    hx, hy = 66, 64
-    c.box(hx, hy, 9, FLOOR_Y + 12 - hy, 'wood')
-    c.rect(hx - 1, hy - 2, 11, 3, RAMP['wood'][3]); c.frame(hx - 1, hy - 2, 11, 3, O)
-    c.ellipse(hx + 4, hy + 8, 2, 2, RAMP['wood'][3], RAMP['wood'][1])
-    # footboard
-    fx = 186
-    c.box(fx, 82, 7, FLOOR_Y + 12 - 82, 'wood')
-    c.rect(fx - 1, 80, 9, 3, RAMP['wood'][3]); c.frame(fx - 1, 80, 9, 3, O)
-    # frame + legs
-    c.box(74, 100, fx - 74, 9, 'wood')
-    c.rect(77, 109, 4, 6, RAMP['wood'][0]); c.rect(fx - 5, 109, 4, 6, RAMP['wood'][0])
-    # mattress
-    c.rect(74, 88, fx - 74, 12, '#fff4e4'); c.hline(74, 88, fx - 74, O)
-    c.hline(74, 98, fx - 74, '#e3d3c0'); c.hline(74, 99, fx - 74, '#c9b49a')
-    # pillow
-    c.ellipse(86, 86, 10, 5, '#fffaf0', O)
-    c.hline(80, 88, 12, '#e8dccb'); c.px(83, 84, '#ffffff'); c.px(84, 84, '#ffffff')
-    c.px(86, 87, '#e8dccb'); c.px(87, 88, '#e8dccb')
+    x = BED['x']
+    # headboard against the wall
+    c.box(x, 38, 80, 30, 'oak')
+    c.rect(x + 2, 36, 76, 4, RAMP['oak'][3]); c.frame(x + 1, 35, 78, 5, O)
+    for k in range(4):
+        c.frame(x + 8 + k * 17, 44, 13, 18, RAMP['oak'][1]); c.hline(x + 9 + k * 17, 45, 11, RAMP['oak'][3])
+    # mattress top (seen from above)
+    c.rect(x + 3, 64, 74, 42, RAMP['sheet'][2]); c.frame(x + 2, 63, 76, 44, O)
+    c.hline(x + 3, 64, 74, RAMP['sheet'][3])
+    # pillows
+    for px_ in (x + 8, x + 42):
+        c.ellipse(px_ + 14, 71, 14, 5, '#ffffff', O)
+        c.hline(px_ + 4, 74, 18, '#e9def3'); c.px(px_ + 6, 69, '#ffffff')
+    # frame front + legs
+    c.box(x + 2, 106, 76, 14, 'oak')
+    c.rect(x + 4, 120, 5, 4, RAMP['oak'][0]); c.rect(x + 71, 120, 5, 4, RAMP['oak'][0])
 
 
-# blanket area (drawn live in the browser so its colour/pattern can change)
-BLANKET = {'x': 96, 'y': 85, 'w': 90, 'h': 22}
-
-
-def rug(c):
-    cx, cy, rx, ry = 244, 124, 52, 11
-    c.ellipse(cx, cy, rx, ry, RAMP['blue'][1], O)
-    c.ellipse(cx, cy, rx - 3, ry - 2, RAMP['blue'][2])
-    c.ellipse(cx, cy, rx - 8, ry - 4, '#f2c35a')
-    c.ellipse(cx, cy, rx - 11, ry - 5, RAMP['blue'][2])
-    c.ellipse(cx, cy, rx - 17, ry - 7, '#e2664f')
-    c.ellipse(cx, cy, rx - 20, ry - 8, RAMP['blue'][3])
-    # tassels
-    for x in range(cx - rx + 6, cx + rx - 5, 3):
-        pass
-    for x in (cx - rx - 1, cx + rx + 1):
-        for dy in (-2, 0, 2):
-            c.px(x, cy + dy, '#fff4e4')
+DESK = {'x': 190, 'y': 48, 'w': 70}
+LAMP = {'x': 242, 'y': 26, 'w': 16, 'h': 26}
+COMPUTER = {'x': 202, 'y': 22, 'w': 34, 'h': 30}
 
 
 def desk(c):
-    x, y, w = 214, 74, 96
-    # desk top
-    c.box(x, y, w, 6, 'wood')
-    # left drawer unit
-    c.box(x + 3, y + 6, 26, FLOOR_Y + 14 - (y + 6), 'wood')
-    for k in range(3):
-        dy = y + 8 + k * 11
-        c.frame(x + 5, dy, 22, 10, RAMP['wood'][1])
-        c.hline(x + 6, dy + 1, 20, RAMP['wood'][3])
-        c.rect(x + 14, dy + 4, 4, 2, RAMP['yellow'][2]); c.frame(x + 13, dy + 3, 6, 4, O)
-    # right leg
-    c.box(x + w - 8, y + 6, 6, FLOOR_Y + 14 - (y + 6), 'wood')
-    c.rect(x + 29, y + 6, w - 37, 2, RAMP['wood'][0])
-    # chair (behind character area, tucked under desk)
-    c.box(x + 44, y + 12, 22, 6, 'curtain')
-    c.box(x + 52, y + 18, 6, 16, 'plum')
-    c.rect(x + 46, y + 34, 18, 2, RAMP['plum'][1]); c.frame(x + 45, y + 33, 20, 4, O)
+    x, w = DESK['x'], DESK['w']
+    # legs (behind)
+    c.rect(x + 3, 70, 4, 26, RAMP['oak'][0]); c.rect(x + w - 7, 70, 4, 26, RAMP['oak'][0])
+    # top surface + front edge
+    c.rect(x, 50, w, 16, RAMP['oak'][3]); c.frame(x, 49, w, 17, O)
+    c.hline(x + 1, 50, w - 2, '#f0bf8a')
+    c.box(x, 65, w, 7, 'oak')
+    # drawer unit
+    c.box(x + w - 26, 71, 22, 22, 'oak')
+    for k in range(2):
+        c.frame(x + w - 24, 73 + k * 10, 18, 8, RAMP['oak'][1])
+        c.rect(x + w - 17, 76 + k * 10, 4, 2, RAMP['yellow'][2])
+    # shadow on the floor
+    c.dither(x + 2, 96, w - 4, 2, RAMP['oak'][1], RAMP['oak'][2])
 
 
-def monitor(c):
-    x, y = 236, 44
-    c.box(x, y, 40, 28, 'beige')
-    c.rect(x + 3, y + 3, 34, 20, '#2b3555')
-    # screen content: a little task list + heart
-    c.dither(x + 3, y + 3, 34, 20, '#2b3555', '#2f3a5c')
-    c.rect(x + 3, y + 3, 34, 3, '#6b5bb5')
+def computer(c):
+    x, y = COMPUTER['x'], COMPUTER['y']
+    c.box(x, y, 34, 24, 'beige')
+    c.rect(x + 3, y + 3, 28, 17, '#2b3555')
+    c.dither(x + 3, y + 3, 28, 17, '#2b3555', '#2f3a5c')
+    c.rect(x + 3, y + 3, 28, 3, '#6b5bb5')
     for k, col in enumerate(('#7fe0c0', '#f7c948', '#ef8db0')):
-        c.rect(x + 6, y + 9 + k * 4, 2, 2, col)
-        c.hline(x + 10, y + 9 + k * 4, 12 - k * 2, '#c9d4f0')
-        c.hline(x + 10, y + 10 + k * 4, 8, '#7d8ab0')
-    c.sprite(x + 26, y + 10, ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'], {'r': '#ef6b8a'})
-    c.px(x + 27, y + 11, '#ffd0dc')
-    c.px(x + 4, y + 7, '#ffffff')
-    # stand
-    c.rect(x + 16, y + 28, 8, 2, RAMP['beige'][1]); c.box(x + 11, y + 29, 18, 3, 'beige', light=False)
-    c.px(x + 34, y + 25, '#7fe0c0')    # power light
-    # keyboard + mug
-    c.box(x - 2, 70, 26, 4, 'beige', light=False)
+        c.rect(x + 5, y + 8 + k * 4, 2, 2, col); c.hline(x + 9, y + 8 + k * 4, 10 - k * 2, '#c9d4f0')
+    c.sprite(x + 22, y + 9, ['.r.r.', 'rrrrr', '.rrr.', '..r..'], {'r': '#ef6b8a'})
+    c.rect(x + 13, y + 24, 8, 3, RAMP['beige'][1]); c.box(x + 9, y + 26, 16, 3, 'beige', light=False)
+    c.box(x + 4, 56, 26, 4, 'beige', light=False)      # keyboard on the desk top
     for k in range(5):
-        c.hline(x + 1 + k * 4, 71, 2, RAMP['beige'][3])
-    c.box(x + 30, 66, 7, 8, 'curtain'); c.vline(x + 37, 68, 3, O); c.px(x + 38, 68, O); c.px(x + 38, 70, O)
-    c.px(x + 32, 63, '#ffffff'); c.px(x + 33, 62, '#ffffff'); c.px(x + 34, 64, '#ffffff')
-
-
-LAMP = {'x': 288, 'y': 48, 'w': 18, 'h': 26}
+        c.hline(x + 7 + k * 4, 57, 2, RAMP['beige'][3])
+    c.px(x + 30, y + 21, '#7fe0c0')
 
 
 def desk_lamp(c):
     x, y = LAMP['x'], LAMP['y']
-    # arm
-    c.rect(x + 8, y + 10, 2, 14, RAMP['plum'][2]); c.vline(x + 8, y + 10, 14, O); c.vline(x + 10, y + 10, 14, O)
-    c.box(x + 3, y + 22, 12, 4, 'plum')
-    # shade (yellow cone)
-    rows = ['....OOOOOOOO....', '...OyyyyyyyyO...', '..OyYyyyyyyyyO..', '.OyYyyyyyyyyyyO.', 'OyYyyyyyyyyyyydO', 'OOOOOOOOOOOOOOOO']
-    c.sprite(x + 1, y + 4, rows, {'O': O, 'y': RAMP['yellow'][2], 'Y': RAMP['yellow'][3], 'd': RAMP['yellow'][1]})
-    c.rect(x + 7, y + 10, 4, 1, '#fff6c2')
+    c.rect(x + 7, y + 10, 2, 14, RAMP['plum'][2]); c.vline(x + 6, y + 10, 14, O); c.vline(x + 9, y + 10, 14, O)
+    c.box(x + 2, y + 22, 12, 4, 'plum')
+    rows = ['...OOOOOOOO...', '..OyyyyyyyyO..', '.OyYyyyyyyyyO.', 'OyYyyyyyyyyydO', 'OOOOOOOOOOOOOO']
+    c.sprite(x + 1, y + 5, rows, {'O': O, 'y': RAMP['yellow'][2], 'Y': RAMP['yellow'][3], 'd': RAMP['yellow'][1]})
+    c.rect(x + 6, y + 10, 4, 1, '#fff6c2')
 
 
-def poster(c):
-    x, y, w, h = 190, 14, 22, 30
-    c.box(x, y, w, h, 'cream')
-    c.rect(x + 3, y + 3, w - 6, h - 6, RAMP['purple'][2])
-    c.dither(x + 3, y + 3, w - 6, 6, RAMP['purple'][1], RAMP['purple'][2])
-    # mountains + stars
-    for k in range(w - 6):
-        top = y + h - 10 - max(0, 6 - abs(k - 6)) - max(0, 4 - abs(k - 13))
-        c.vline(x + 3 + k, top, y + h - 3 - top, '#3c6e9e')
-        c.px(x + 3 + k, top, '#fff4e4' if abs(k - 6) < 2 else '#79a5e0')
-    for sx_, sy_ in ((x + 6, y + 6), (x + 14, y + 9), (x + 10, y + 13), (x + 16, y + 5)):
-        c.px(sx_, sy_, '#ffe28a')
-    c.ellipse(x + 15, y + 9, 2, 2, '#ffe28a')
-    c.px(x + 10, y - 2, O); c.vline(x + 10, y - 1, 1, O)
-
-
-def corkboard(c):
-    x, y, w, h = 240, 10, 40, 26
-    c.box(x, y, w, h, 'wood')
-    c.rect(x + 2, y + 2, w - 4, h - 4, RAMP['cork'][2])
-    r = random.Random(3)
-    for _ in range(40):
-        c.px(x + 2 + r.randrange(w - 4), y + 2 + r.randrange(h - 4), RAMP['cork'][1])
-    notes = [(x + 4, y + 4, '#ffe36b'), (x + 15, y + 6, '#ff9fb8'), (x + 27, y + 3, '#8fd3ff'), (x + 6, y + 14, '#a8e07a'), (x + 25, y + 14, '#ffbf6b')]
-    for nx, ny, col in notes:
-        c.rect(nx, ny, 9, 8, col)
-        c.hline(nx + 1, ny + 3, 6, shade_of(col)); c.hline(nx + 1, ny + 5, 4, shade_of(col))
-        c.px(nx + 4, ny, '#e2554e'); c.px(nx + 4, ny - 1, '#8e3534')
-    # photo
-    c.rect(x + 16, y + 15, 8, 8, '#fff4e4'); c.rect(x + 17, y + 16, 6, 4, '#79a5e0'); c.rect(x + 17, y + 19, 6, 1, '#6cbf6a')
-
-
-def clock(c):
-    cx, cy = 225, 26
-    c.ellipse(cx, cy, 7, 7, RAMP['curtain'][2], O)
-    c.ellipse(cx, cy, 5, 5, '#fff4e4')
-    for dx, dy in ((0, -4), (4, 0), (0, 4), (-4, 0)):
-        c.px(cx + dx, cy + dy, RAMP['plum'][2])
-    c.vline(cx, cy - 3, 3, O); c.hline(cx, cy, 3, O)
-    c.px(cx - 2, cy - 7, O); c.px(cx + 2, cy - 7, O); c.px(cx - 3, cy - 8, RAMP['yellow'][2]); c.px(cx + 3, cy - 8, RAMP['yellow'][2])
-
-
-def big_plant(c):
-    x = 306
-    plant(c, x - 7, FLOOR_Y + 14, big=True)
-
-
-def baseboard_shadows(c):
-    # contact shadows under furniture on the floor
-    for x0, x1 in ((10, 56), (217, 244), (300, 308)):
-        c.dither(x0, FLOOR_Y + 2, x1 - x0, 1, '#8a5636', RAMP['wood'][2])
+def chair(c):
+    x, y = 212, 76
+    c.rect(x + 3, y + 24, 3, 10, RAMP['plum'][1]); c.rect(x + 18, y + 24, 3, 10, RAMP['plum'][1])
+    c.rect(x + 10, y + 26, 4, 8, RAMP['plum'][2])
+    c.box(x + 1, y + 20, 22, 6, 'chair')                # seat
+    c.box(x + 3, y, 18, 22, 'chair')                    # back rest (facing us)
+    c.ellipse(x + 7, y + 3, 3, 3, RAMP['chair'][2], O); c.ellipse(x + 17, y + 3, 3, 3, RAMP['chair'][2], O)  # cat ears!
+    c.box(x + 3, y + 4, 18, 18, 'chair')
+    c.hline(x + 6, y + 12, 12, RAMP['chair'][1])
 
 
 def paint(night=False):
     c = Pix(RW, RH)
-    wall(c)
+    walls(c)
     floor(c)
+    side_walls(c)
     window(c, night)
     window_extras(c)
-    hanging_plant(c, 70)
-    bookshelf(c)
-    poster(c)
-    clock(c)
-    corkboard(c)
-    rug(c)
+    door(c)
     desk(c)
-    monitor(c)
+    computer(c)
     desk_lamp(c)
-    big_plant(c)
+    chair(c)
     bed(c)
-    baseboard_shadows(c)
     return c
 
 
@@ -790,17 +629,15 @@ def main():
     day = paint(False)
     day.img.save(os.path.join(OUT, 'room-day.png'))
     night = paint(True)
-    # night overlay = just the window region of the night painting
-    wx, wy, ww, wh = 98, 10, 76, 52
+    wx, wy, ww, wh = WIN['x'], WIN['y'], WIN['w'], WIN['h']
     overlay = Image.new('RGBA', (RW, RH), (0, 0, 0, 0))
     overlay.paste(night.img.crop((wx, wy, wx + ww, wy + wh)), (wx, wy))
     overlay.save(os.path.join(OUT, 'window-night.png'))
     build_decor()
     build_sheet(GARDEN_ORDER, 'garden_', 32, 32, 'garden.png')
     meta = {'size': [RW, RH], 'decor': DECOR_ORDER, 'garden': GARDEN_ORDER, 'blanket': BLANKET, 'lamp': LAMP,
-            'bed': {'x': 66, 'y': 64, 'w': 128, 'h': 52},
-            'computer': {'x': 236, 'y': 44, 'w': 40, 'h': 32},
-            'lampGlow': {'x': 297, 'y': 56}}
+            'bed': BED, 'computer': COMPUTER, 'window': WIN, 'wallY': WALL_Y,
+            'lampGlow': {'x': LAMP['x'] + 8, 'y': LAMP['y'] + 12}}
     with open(os.path.join(OUT, 'room-meta.js'), 'w') as fh:
         fh.write('/* Generated by tools/build_room.py - do not edit by hand. */\n')
         fh.write('window.COZY_ROOM_META = ' + json.dumps(meta) + ';\n')

@@ -177,33 +177,51 @@
   function hopCharacter() { charState.hop = [-2, -4, -5, -4, -2, 0, -1, 0]; }
 
   // Walking: the character strolls left and right along the floor.
-  var ROOM_W = 320, WALK_MIN = 28, WALK_MAX = 296, WALK_SPEED = 16;   // room pixels per second
+  var ROOM_W = 320, ROOM_H = 180, WALK_MIN = 34, WALK_MAX = 286, FEET_MIN = 128, FEET_MAX = 168, WALK_SPEED = 16;   // room pixels per second
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var walker = { x: 206, target: 206, facing: 1, restUntil: 0, last: 0 };
+  var walker = { x: 196, y: 150, target: 196, targetY: 150, facing: 1, restUntil: 0, last: 0 };
   var charBuffer = null;
+
+  function placeWalker() {
+    var host = document.getElementById('roomCharacter');
+    if (!host) return;
+    host.style.left = (walker.x / ROOM_W * 100).toFixed(3) + '%';
+    // the canvas bottom sits 2px below the feet
+    host.style.bottom = ((ROOM_H - (walker.y + 2)) / ROOM_H * 100).toFixed(3) + '%';
+    // depth: walk behind the cat when further back in the room
+    var catEl = document.getElementById('sleepyCat');
+    var catFeet = 146;
+    if (catEl && catEl.style.bottom) catFeet = ROOM_H - parseFloat(catEl.style.bottom) / 100 * ROOM_H - 7;
+    host.style.zIndex = walker.y < catFeet ? '5' : '7';
+  }
 
   function updateWalker(now) {
     var dt = walker.last ? Math.min(0.25, (now - walker.last) / 1000) : 0;
     walker.last = now;
+    if (!walker.placed) { placeWalker(); walker.placed = true; }
     if (reduceMotion || document.querySelector('.room-decor-item.is-dragging')) return false;
-    if (walker.x === walker.target) {
+    var dx = walker.target - walker.x, dy = walker.targetY - walker.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.5) {
+      walker.x = walker.target; walker.y = walker.targetY;
       if (!walker.restUntil) walker.restUntil = now + 4000 + Math.random() * 7000;
       if (now > walker.restUntil) {
-        var t;
-        do { t = WALK_MIN + Math.random() * (WALK_MAX - WALK_MIN); } while (Math.abs(t - walker.x) < 35);
-        walker.target = Math.round(t);
+        var t, ty;
+        do {
+          t = WALK_MIN + Math.random() * (WALK_MAX - WALK_MIN);
+          ty = FEET_MIN + Math.random() * (FEET_MAX - FEET_MIN);
+        } while (Math.abs(t - walker.x) + Math.abs(ty - walker.y) < 40);
+        walker.target = Math.round(t); walker.targetY = Math.round(ty);
         walker.restUntil = 0;
       }
       return false;
     }
-    var dir = walker.target > walker.x ? 1 : -1;
-    walker.facing = dir;
-    var nx = walker.x + dir * WALK_SPEED * dt;
-    if ((dir > 0 && nx >= walker.target) || (dir < 0 && nx <= walker.target)) nx = walker.target;
-    walker.x = nx;
-    var host = document.getElementById('roomCharacter');
-    if (host) host.style.left = (walker.x / ROOM_W * 100).toFixed(3) + '%';
-    return walker.x !== walker.target;
+    if (Math.abs(dx) > 0.5) walker.facing = dx > 0 ? 1 : -1;
+    var step = Math.min(dist, WALK_SPEED * dt);
+    walker.x += dx / dist * step;
+    walker.y += dy / dist * step;
+    placeWalker();
+    return true;
   }
 
   function renderCharacter(now) {
@@ -273,9 +291,10 @@
       var left = parseFloat(item.style.left), top = parseFloat(item.style.top);
       if (isNaN(left) || isNaN(top)) return;
       // cushion sits ~3px above the item's centre; the sleeping cat's body ends 7px above the canvas bottom
-      var cushionY = top / 100 * 140 + 3;
+      var RH = (ROOM && ROOM.size[1]) || 180;
+      var cushionY = top / 100 * RH + 3;
       host.style.left = (left + 1).toFixed(2) + '%';
-      host.style.bottom = ((140 - (cushionY + 7 + 2)) / 140 * 100).toFixed(2) + '%';
+      host.style.bottom = ((RH - (cushionY + 7 + 2)) / RH * 100).toFixed(2) + '%';
       host.style.zIndex = '8';
       cat.inBed = true;
     } else {
@@ -418,44 +437,69 @@
 
   function drawBlanket(ctx) {
     var B = ROOM.blanket, base = roomLook.blanket || '#d5b6d9';
-    var pal = { base: base, light: light(base, 0.45), shade: shade(base, 0.2), dark: shade(base, 0.38), fold: light(base, 0.7) };
-    var x0 = B.x, x1 = B.x + B.w - 1, top = B.y, foldW = 7;
+    var pal = { base: base, light: light(base, 0.45), shade: shade(base, 0.2), dark: shade(base, 0.38), fold: '#fbf6ff' };
+    var x0 = B.x, x1 = B.x + B.w - 1, top = B.y, edge = B.y + (B.top || 5), foldH = 5;
     for (var x = x0; x <= x1; x++) {
       var yb = B.y + B.h - 2 + ((x >> 2) & 1);       // scalloped bottom hem
       for (var y = top; y <= yb; y++) {
         var c;
         if (x === x0 || x === x1 || y === top || y === yb) c = '#3a2630';
-        else if (x - x0 <= foldW) {                    // folded-back top sheet
-          c = x - x0 === foldW ? pal.dark : (y === top + 5 ? pal.shade : pal.fold);
-          if (x - x0 === 1) c = '#ffffff';
-        } else if (y === top + 5) c = pal.dark;          // edge of the mattress
+        else if (y - top <= foldH) c = y - top === foldH ? pal.dark : (y - top === 1 ? '#ffffff' : pal.fold);   // folded-back sheet
+        else if (y === edge) c = pal.dark;                 // edge of the mattress
         else {
           c = blanketColour(x, y, B, pal, roomLook.pattern);
-          if (y < top + 5) c = c === pal.base ? light(base, 0.2) : c;   // top surface is lit
-          if (x >= x1 - 1 || y >= yb - 1) c = c === pal.base ? pal.shade : (c === pal.light ? pal.base : c);
+          if (y > edge) {                                   // front of the bed: in shadow
+            c = c === pal.base ? pal.shade : (c === pal.light ? pal.base : c);
+          } else if (x >= x1 - 1) c = c === pal.base ? pal.shade : c;
         }
         ctx.fillStyle = c;
         ctx.fillRect(x, y, 1, 1);
       }
     }
-    // little wrinkles
     ctx.fillStyle = pal.shade;
-    [[x0 + 30, top + 2], [x0 + 31, top + 3], [x0 + 58, top + 1], [x0 + 59, top + 2]].forEach(function (p) { ctx.fillRect(p[0], p[1], 2, 1); });
+    [[x0 + 20, top + 10], [x0 + 21, top + 11], [x0 + 48, top + 14], [x0 + 49, top + 15]].forEach(function (p) { ctx.fillRect(p[0], p[1], 3, 1); });
+  }
+
+  // Night: purple dusk tint, warm lamp light and a patch of moonlight.
+  function drawNight(ctx, lampOn) {
+    var W = ROOM.size[0], H = ROOM.size[1], win = ROOM.window, g = ROOM.lampGlow;
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = '#8073b8';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'screen';
+    // moonlight falling through the window onto the floor
+    ctx.fillStyle = 'rgba(120,140,230,0.22)';
+    ctx.beginPath();
+    ctx.moveTo(win.x + 4, ROOM.wallY + 2); ctx.lineTo(win.x + win.w - 4, ROOM.wallY + 2);
+    ctx.lineTo(win.x + win.w + 30, ROOM.wallY + 46); ctx.lineTo(win.x + 22, ROOM.wallY + 46);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(150,170,255,0.25)';
+    ctx.fillRect(win.x + 4, win.y + 4, win.w - 8, win.h - 8);
+    if (lampOn) {
+      var grad = ctx.createRadialGradient(g.x, g.y, 2, g.x, g.y + 20, 110);
+      grad.addColorStop(0, 'rgba(255,214,130,0.75)');
+      grad.addColorStop(0.35, 'rgba(255,190,110,0.32)');
+      grad.addColorStop(1, 'rgba(255,170,100,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
   }
 
   function drawLamp(ctx, on, night) {
     var L = ROOM.lamp;
     if (on) {
       ctx.fillStyle = '#fff6c2';
-      ctx.fillRect(L.x + 4, L.y + 10, 10, 1);
-      ctx.fillStyle = night ? 'rgba(255,226,130,0.32)' : 'rgba(255,236,160,0.18)';
-      for (var r = 0; r < 15; r++) {
-        var half = 5 + Math.floor(r * 0.9);
-        ctx.fillRect(L.x + 9 - half, L.y + 11 + r, half * 2, 1);
+      ctx.fillRect(L.x + 3, L.y + 10, 10, 1);
+      ctx.fillStyle = night ? 'rgba(255,226,130,0.3)' : 'rgba(255,236,160,0.16)';
+      for (var r = 0; r < 14; r++) {
+        var half = 5 + Math.floor(r * 0.8);
+        ctx.fillRect(L.x + 8 - half, L.y + 11 + r, half * 2, 1);
       }
     } else {
       ctx.fillStyle = '#9b8f7c';
-      ctx.fillRect(L.x + 7, L.y + 10, 4, 1);
+      ctx.fillRect(L.x + 6, L.y + 10, 4, 1);
     }
   }
 
@@ -471,6 +515,7 @@
     ctx.drawImage(roomImgs['room-day'], 0, 0);
     if (night) ctx.drawImage(roomImgs['window-night'], 0, 0);
     drawBlanket(ctx);
+    if (night) drawNight(ctx, lampOn);
     drawLamp(ctx, lampOn, night);
   }
 
