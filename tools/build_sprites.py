@@ -684,6 +684,17 @@ def to_image(cells, cw, ch, cols):
     return img
 
 
+def walk_pose(g, side):
+    """Lift one foot by a pixel (side 0 = left leg, 1 = right leg) for walk frames."""
+    out = [row[:] for row in g]
+    cols = range(0, 16) if side == 0 else range(16, 32)
+    for x in cols:
+        for y in range(37, H - 1):
+            out[y][x] = g[y + 1][x]
+        out[H - 1][x] = '.'
+    return out
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     cells, index = [], {}
@@ -693,12 +704,16 @@ def main():
         cells.append(g)
 
     add('body', body_layer())
+    for side in (0, 1):
+        add(f'body@w{side + 1}', walk_pose(body_layer(), side))
     for e in EXPRESSIONS:
         for girl in (False, True):
             add(f'face-{e}{"-girl" if girl else ""}', face(e, False, girl))
         add(f'face-{e}-blink', face(e, True))
     for s in ('hoodie', 'tee', 'cardigan', 'overalls'):
         add(f'outfit-{s}', outfit(s))
+        for side in (0, 1):
+            add(f'outfit-{s}@w{side + 1}', walk_pose(outfit(s), side))
     for s in ('default', 'short', 'bun', 'curly', 'long'):
         for gender in ('girl', 'boy'):
             if s != 'default' and gender == 'boy':

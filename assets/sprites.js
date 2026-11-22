@@ -114,26 +114,26 @@
   // ---------------------------------------------------------------- character drawing
   var look = { gender: 'girl', emote: 'happy', outfitStyle: 'hoodie', hairStyle: 'default', accessory: 'none' };
 
-  function layerList(blink) {
+  function layerList(blink, step) {
     var g = look.gender === 'boy' ? 'boy' : 'girl';
     var hs = look.hairStyle || 'default';
     var hk = hs === 'default' ? 'default-' + g : hs;
     var emote = look.emote || 'happy';
     var faceName = blink ? 'face-' + emote + '-blink' : 'face-' + emote + (g === 'girl' ? '-girl' : '');
-    var list = ['hairback-' + hk, 'body', 'outfit-' + (look.outfitStyle || 'hoodie'), faceName, 'hairfront-' + hk];
+    var sfx = step ? '@w' + step : '';
+    var list = ['hairback-' + hk, 'body' + sfx, 'outfit-' + (look.outfitStyle || 'hoodie') + sfx, faceName, 'hairfront-' + hk];
     var acc = look.accessory;
     if (acc && acc !== 'none') {
-      // the cap sits over the hair; hide the hair top under it for a cleaner look
       list.push('acc-' + acc);
     }
     return list;
   }
 
   // Draws the character at (ox, oy).  headDy pushes the head down (breathing).
-  function drawCharacter(ctx, ox, oy, blink, headDy) {
+  function drawCharacter(ctx, ox, oy, blink, headDy, step) {
     var sheet = recoloured('character-layers', characterPalette(look));
     var SPLIT = 22;   // rows above this belong to the head
-    layerList(blink).forEach(function (name) {
+    layerList(blink, step).forEach(function (name) {
       var p = layerXY(name);
       if (!p) return;
       // body / lower half
@@ -176,6 +176,36 @@
   }
   function hopCharacter() { charState.hop = [-2, -4, -5, -4, -2, 0, -1, 0]; }
 
+  // Walking: the character strolls left and right along the floor.
+  var ROOM_W = 320, WALK_MIN = 28, WALK_MAX = 296, WALK_SPEED = 16;   // room pixels per second
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var walker = { x: 206, target: 206, facing: 1, restUntil: 0, last: 0 };
+  var charBuffer = null;
+
+  function updateWalker(now) {
+    var dt = walker.last ? Math.min(0.25, (now - walker.last) / 1000) : 0;
+    walker.last = now;
+    if (reduceMotion || document.querySelector('.room-decor-item.is-dragging')) return false;
+    if (walker.x === walker.target) {
+      if (!walker.restUntil) walker.restUntil = now + 4000 + Math.random() * 7000;
+      if (now > walker.restUntil) {
+        var t;
+        do { t = WALK_MIN + Math.random() * (WALK_MAX - WALK_MIN); } while (Math.abs(t - walker.x) < 35);
+        walker.target = Math.round(t);
+        walker.restUntil = 0;
+      }
+      return false;
+    }
+    var dir = walker.target > walker.x ? 1 : -1;
+    walker.facing = dir;
+    var nx = walker.x + dir * WALK_SPEED * dt;
+    if ((dir > 0 && nx >= walker.target) || (dir < 0 && nx <= walker.target)) nx = walker.target;
+    walker.x = nx;
+    var host = document.getElementById('roomCharacter');
+    if (host) host.style.left = (walker.x / ROOM_W * 100).toFixed(3) + '%';
+    return walker.x !== walker.target;
+  }
+
   function renderCharacter(now) {
     var c = ensureCharacterCanvas();
     if (!c || !ready()) return;
@@ -186,13 +216,27 @@
       charState.nextBlink = now + 2400 + Math.random() * 3200;
     }
     var blink = now < charState.blinkUntil;
-    var headDy = Math.floor(now / 700) % 2;
-    var hopY = charState.hop.length ? charState.hop.shift() : 0;
+    var walking = charState.hop.length ? false : updateWalker(now);
+    var phase = Math.floor(now / 170) % 4;
+    var step = walking ? [1, 0, 2, 0][phase] : 0;
+    var headDy = walking ? 0 : Math.floor(now / 700) % 2;
+    var hopY = charState.hop.length ? charState.hop.shift() : (walking && phase % 2 === 0 ? -1 : 0);
     // soft floor shadow
     ctx.fillStyle = 'rgba(58,38,48,.22)';
     ctx.fillRect(CHAR_OX + 8, CHAR_OY + CH - 2, 16, 2);
     ctx.fillRect(CHAR_OX + 6, CHAR_OY + CH - 1, 20, 1);
-    drawCharacter(ctx, CHAR_OX, CHAR_OY + hopY, blink, hopY ? 0 : headDy);
+    // draw into a buffer so we can mirror it when walking left
+    if (!charBuffer) { charBuffer = document.createElement('canvas'); charBuffer.width = CW; charBuffer.height = CH; }
+    var b = charBuffer.getContext('2d');
+    b.clearRect(0, 0, CW, CH);
+    drawCharacter(b, 0, 0, blink, headDy, step);
+    ctx.save();
+    if (walker.facing < 0) {
+      ctx.translate(CHAR_OX * 2 + CW, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(charBuffer, CHAR_OX, CHAR_OY + hopY);
+    ctx.restore();
     var bob = Math.floor(now / 500) % 2;
     drawIcon(ctx, look.emote || 'happy', 28, 1 + bob + Math.min(0, hopY));
   }
@@ -219,6 +263,27 @@
     }
     return catCanvas;
   }
+  // If a cat bed is placed in the room, the cat curls up in it for naps.
+  function moveCatToBed(goToBed) {
+    var host = document.getElementById('sleepyCat');
+    if (!host) return;
+    var bedArt = goToBed && document.querySelector('.room-decor-item .pixel-decor-catbed');
+    if (bedArt) {
+      var item = bedArt.closest('.room-decor-item');
+      var left = parseFloat(item.style.left), top = parseFloat(item.style.top);
+      if (isNaN(left) || isNaN(top)) return;
+      // cushion sits ~3px above the item's centre; the sleeping cat's body ends 7px above the canvas bottom
+      var cushionY = top / 100 * 140 + 3;
+      host.style.left = (left + 1).toFixed(2) + '%';
+      host.style.bottom = ((140 - (cushionY + 7 + 2)) / 140 * 100).toFixed(2) + '%';
+      host.style.zIndex = '8';
+      cat.inBed = true;
+    } else {
+      host.style.left = ''; host.style.bottom = ''; host.style.zIndex = '';
+      cat.inBed = false;
+    }
+  }
+
   function petCat() {
     var now = performance.now();
     cat.mode = 'happy'; cat.since = now; cat.until = now + 1600;
@@ -249,8 +314,9 @@
 
     // simple behaviour loop: sit and look around -> curl up for a nap -> wake up
     if (cat.mode === 'happy' && now > cat.until) { cat.mode = 'sit'; cat.since = now; cat.until = now + 15000 + Math.random() * 15000; }
-    else if (cat.mode === 'sit' && now > cat.until) { cat.mode = 'sleep'; cat.since = now; cat.until = now + 12000 + Math.random() * 10000; }
-    else if (cat.mode === 'sleep' && now > cat.until) { cat.mode = 'sit'; cat.since = now; cat.until = now + 18000 + Math.random() * 12000; }
+    else if (cat.mode === 'sit' && now > cat.until) { cat.mode = 'sleep'; cat.since = now; cat.until = now + 12000 + Math.random() * 10000; moveCatToBed(true); }
+    else if (cat.mode === 'sleep' && now > cat.until) { cat.mode = 'sit'; cat.since = now; cat.until = now + 18000 + Math.random() * 12000; moveCatToBed(false); }
+    if (cat.mode !== 'sleep' && cat.inBed) moveCatToBed(false);
 
     var frame;
     if (cat.mode === 'sleep') {

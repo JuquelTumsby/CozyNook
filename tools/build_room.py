@@ -527,7 +527,7 @@ def paint(night=False):
 
 
 # --------------------------------------------------------------------- shop decorations (32 x 24 each)
-DECOR_ORDER = ['lights', 'plush', 'books', 'flower', 'moon', 'plant']
+DECOR_ORDER = ['lights', 'plush', 'books', 'flower', 'moon', 'plant', 'catbed', 'rug', 'poster', 'beanbag', 'fishtank', 'guitar']
 
 
 def decor_lights(c):
@@ -626,6 +626,156 @@ def decor_plant(c):
     c.rect(14, 20, 5, 2, '#fff4e4')
 
 
+
+def decor_catbed(c):
+    c.ellipse(16, 17, 14, 6, RAMP['purple'][2], O)
+    c.ellipse(16, 15, 11, 3, '#ffd0dc', RAMP['purple'][1])
+    c.hline(6, 14, 20, '#ffe3ea')
+    c.hline(4, 19, 24, RAMP['purple'][1]); c.hline(5, 20, 22, RAMP['purple'][1])
+    c.hline(5, 16, 3, RAMP['purple'][3])
+    # paw print on the front
+    c.rect(15, 18, 3, 2, '#ffd0dc'); c.px(14, 17, '#ffd0dc'); c.px(16, 16, None); c.px(18, 17, '#ffd0dc')
+    # fish toy
+    c.sprite(24, 9, ['.bb.b', 'bbbbb', '.bb.b'], {'b': '#4f8fd0'}); c.px(25, 9, '#ffffff')
+
+
+def decor_rug(c):
+    c.ellipse(16, 18, 15, 5, RAMP['yellow'][1], O)
+    c.ellipse(16, 18, 12, 3, RAMP['yellow'][2])
+    c.ellipse(16, 18, 8, 2, '#ef8db0')
+    c.sprite(14, 16, ['..y..', '.yyy.', '..y..'], {'y': '#fff4b8'})
+    for x in (1, 30):
+        c.px(x - (1 if x < 16 else -1), 17, '#fff4e4'); c.px(x - (1 if x < 16 else -1), 19, '#fff4e4')
+
+
+def decor_poster(c):
+    c.box(7, 1, 18, 22, 'cream')
+    c.rect(9, 3, 14, 18, '#1f2752')
+    c.dither(9, 3, 14, 5, '#1f2752', '#2d3874')
+    c.ellipse(16, 12, 4, 4, '#f08a3e', O); c.px(15, 10, '#ffc28a'); c.px(14, 11, '#ffc28a')
+    c.hline(10, 13, 13, '#f7c948'); c.px(10, 12, '#f7c948'); c.px(22, 14, '#f7c948')
+    for sx, sy in ((11, 5), (20, 6), (12, 18), (21, 18), (18, 4)):
+        c.px(sx, sy, '#ffffff')
+    c.px(16, 0, O)
+
+
+def decor_beanbag(c):
+    c.ellipse(16, 17, 13, 6, RAMP['curtain'][2], O)
+    c.ellipse(15, 11, 9, 6, RAMP['curtain'][2], O)
+    c.ellipse(16, 17, 12, 5, RAMP['curtain'][2])
+    c.hline(8, 9, 6, RAMP['curtain'][3]); c.hline(7, 10, 3, RAMP['curtain'][3])
+    c.hline(10, 13, 10, RAMP['curtain'][1]); c.px(9, 14, RAMP['curtain'][1]); c.px(20, 14, RAMP['curtain'][1])
+    c.hline(6, 21, 20, RAMP['curtain'][1])
+    c.vline(23, 12, 6, RAMP['curtain'][1])
+
+
+def decor_fishtank(c):
+    c.rect(3, 6, 26, 15, '#8fd3ff'); c.rect(3, 8, 26, 13, '#5fb6ea')
+    c.dither(3, 8, 26, 1, '#8fd3ff', '#5fb6ea')
+    c.rect(3, 18, 26, 3, '#f2c35a'); c.px(8, 18, '#d39b2c'); c.px(20, 19, '#d39b2c')
+    for x, h in ((6, 7), (8, 5), (24, 8)):
+        c.vline(x, 18 - h, h, RAMP['leaf'][2]); c.px(x + 1, 18 - h + 2, RAMP['leaf'][3])
+    c.sprite(13, 11, ['..oo.o', '.ooooo', 'oowoo.', '.ooooo', '..oo.o'], {'o': '#f08a3e', 'w': '#ffffff'})
+    c.sprite(20, 14, ['.yy.y', 'yyyyy', '.yy.y'], {'y': '#f7c948'})
+    for bx, by in ((12, 9), (11, 7), (22, 10)):
+        c.px(bx, by, '#e7f6ff')
+    c.frame(2, 5, 28, 17, O); c.rect(2, 4, 28, 2, RAMP['plum'][2]); c.frame(2, 4, 28, 2, O)
+    c.rect(4, 7, 1, 8, '#e7f6ff')
+    c.box(1, 21, 30, 3, 'plum', light=False)
+
+
+def decor_guitar(c):
+    c.rect(15, 1, 3, 3, RAMP['dwood'][1]); c.frame(14, 0, 5, 4, O)
+    c.px(13, 1, '#d6d6d6'); c.px(19, 1, '#d6d6d6'); c.px(13, 3, '#d6d6d6'); c.px(19, 3, '#d6d6d6')
+    c.rect(15, 4, 3, 9, RAMP['dwood'][2]); c.vline(14, 4, 9, O); c.vline(18, 4, 9, O)
+    for y in (6, 8, 10):
+        c.hline(15, y, 3, '#d6d6d6')
+    c.ellipse(16, 14, 5, 3, '#f08a3e', O)
+    c.ellipse(16, 19, 7, 4, '#f08a3e', O)
+    c.rect(11, 15, 11, 3, '#f08a3e')
+    c.ellipse(16, 16, 2, 1, '#5e3823')
+    c.hline(14, 20, 5, '#8a3f1e'); c.px(11, 13, '#ffb07a'); c.px(10, 18, '#ffb07a')
+    c.vline(16, 4, 16, '#fff4e4')
+    c.box(9, 22, 15, 2, 'plum', light=False)
+
+
+# --------------------------------------------------------------------- garden (32 x 32 each)
+GARDEN_ORDER = ['soil', 'sprout', 'daisy', 'tulip', 'sunflower', 'can']
+
+
+def soil(c):
+    c.ellipse(16, 25, 13, 5, '#7a4a2e', O)
+    c.ellipse(16, 24, 11, 3, '#9a6440')
+    for x, y in ((9, 25), (21, 26), (14, 27), (24, 24)):
+        c.px(x, y, '#c2a07a')
+    c.hline(8, 23, 4, '#b07a50')
+
+
+def stem(c, top, x=16):
+    c.vline(x, top, 23 - top, RAMP['leaf'][1])
+    c.vline(x + 1, top + 1, 22 - top, RAMP['leaf'][2])
+
+
+def garden_soil(c):
+    soil(c)
+    c.hline(12, 22, 8, '#5e3823')   # little seed row
+
+
+def garden_sprout(c):
+    soil(c); stem(c, 15)
+    c.ellipse(12, 15, 3, 2, RAMP['leaf'][2], O); c.px(11, 14, RAMP['leaf'][3])
+    c.ellipse(21, 13, 3, 2, RAMP['leaf'][2], O); c.px(20, 12, RAMP['leaf'][3])
+
+
+def garden_daisy(c):
+    soil(c); stem(c, 10)
+    c.ellipse(12, 18, 3, 1, RAMP['leaf'][2], O); c.ellipse(21, 16, 3, 1, RAMP['leaf'][2], O)
+    for dx, dy in ((0, -5), (4, -3), (5, 1), (2, 5), (-2, 5), (-5, 1), (-4, -3)):
+        c.ellipse(16 + dx, 8 + dy, 2, 2, '#ffffff', '#c9c0d8')
+    c.ellipse(16, 8, 3, 3, '#f7c948', RAMP['yellow'][0]); c.px(15, 7, '#fff4b8')
+
+
+def garden_tulip(c):
+    soil(c); stem(c, 9)
+    c.ellipse(12, 19, 2, 4, RAMP['leaf'][2], O); c.ellipse(21, 18, 2, 4, RAMP['leaf'][2], O)
+    c.sprite(10, 3, ['O..O..O..O..', 'OrrOrrOrrrO.', 'OrrrrrrrrrO.', 'OrRrrrrrrrO.', 'OrRrrrrrrRO.', '.OrrrrrrRO..', '..OOOOOOO...'],
+             {'O': O, 'r': '#ef5b6b', 'R': '#ff9aa6'})
+    c.px(12, 5, '#ffffff')
+
+
+def garden_sunflower(c):
+    soil(c); stem(c, 11)
+    c.ellipse(11, 17, 3, 2, RAMP['leaf'][2], O); c.ellipse(22, 15, 3, 2, RAMP['leaf'][2], O)
+    import math
+    for k in range(10):
+        a = k * math.pi / 5
+        c.ellipse(16 + round(6 * math.cos(a)), 8 + round(6 * math.sin(a)), 2, 2, '#f7c948', RAMP['yellow'][0])
+    c.ellipse(16, 8, 4, 4, '#7a4a2e', O)
+    c.px(15, 7, '#a8703f'); c.px(17, 9, '#5e3823'); c.px(14, 9, '#5e3823'); c.px(17, 6, '#a8703f')
+
+
+def garden_can(c):
+    c.box(9, 14, 14, 12, 'blue')
+    c.rect(11, 17, 10, 2, RAMP['blue'][3])
+    # handle
+    c.frame(12, 9, 8, 6, O); c.frame(13, 10, 6, 5, RAMP['blue'][2])
+    # spout
+    for k in range(7):
+        c.rect(22 + k, 19 - k, 2, 2, RAMP['blue'][2]); c.px(22 + k, 21 - k, O); c.px(24 + k, 18 - k, O)
+    c.rect(28, 10, 3, 3, RAMP['blue'][1]); c.frame(28, 10, 3, 3, O)
+    for x, y in ((30, 15), (29, 18), (31, 21)):
+        c.px(x, y, '#8fd3ff')
+
+
+def build_sheet(order, prefix, cw, ch, filename):
+    sheet = Image.new('RGBA', (cw * len(order), ch), (0, 0, 0, 0))
+    for i, name in enumerate(order):
+        c = Pix(cw, ch)
+        globals()[prefix + name](c)
+        sheet.paste(c.img, (i * cw, 0))
+    sheet.save(os.path.join(OUT, filename))
+
+
 def build_decor():
     sheet = Image.new('RGBA', (32 * len(DECOR_ORDER), 24), (0, 0, 0, 0))
     for i, name in enumerate(DECOR_ORDER):
@@ -646,7 +796,8 @@ def main():
     overlay.paste(night.img.crop((wx, wy, wx + ww, wy + wh)), (wx, wy))
     overlay.save(os.path.join(OUT, 'window-night.png'))
     build_decor()
-    meta = {'size': [RW, RH], 'decor': DECOR_ORDER, 'blanket': BLANKET, 'lamp': LAMP,
+    build_sheet(GARDEN_ORDER, 'garden_', 32, 32, 'garden.png')
+    meta = {'size': [RW, RH], 'decor': DECOR_ORDER, 'garden': GARDEN_ORDER, 'blanket': BLANKET, 'lamp': LAMP,
             'bed': {'x': 66, 'y': 64, 'w': 128, 'h': 52},
             'computer': {'x': 236, 'y': 44, 'w': 40, 'h': 32},
             'lampGlow': {'x': 297, 'y': 56}}
