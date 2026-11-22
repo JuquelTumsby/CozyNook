@@ -22,6 +22,9 @@
   var BASE = 'assets/sprites/';
   var CW = META.cell[0], CH = META.cell[1], COLS = META.cols;
   var KW = META.cat.cell[0], KH = META.cat.cell[1];
+  var HEAD = META.head || [3, 0, 26, 24];          // head crop for portraits
+  var FEET = META.feet || (CH - 2);               // row of the character's feet
+  var CAT_FEET = META.cat.feet || (KH - 4);
   var IW = META.icons.cell[0];
 
   // ---------------------------------------------------------------- colour helpers
@@ -132,7 +135,7 @@
   // Draws the character at (ox, oy).  headDy pushes the head down (breathing).
   function drawCharacter(ctx, ox, oy, blink, headDy, step) {
     var sheet = recoloured('character-layers', characterPalette(look));
-    var SPLIT = 22;   // rows above this belong to the head
+    var SPLIT = META.split || 22;   // rows above this belong to the head
     layerList(blink, step).forEach(function (name) {
       var p = layerXY(name);
       if (!p) return;
@@ -159,7 +162,7 @@
   }
 
   // ---------------------------------------------------------------- room character widget
-  var CHAR_W = 46, CHAR_H = 62, CHAR_OX = 3, CHAR_OY = 16;
+  var CHAR_OX = 6, CHAR_OY = 18, CHAR_W = CW + CHAR_OX * 2, CHAR_H = CH + CHAR_OY;
   var charCanvas = null, charState = { breathe: 0, blinkUntil: 0, nextBlink: 0, hop: [], iconBob: 0 };
 
   function ensureCharacterCanvas() {
@@ -177,9 +180,9 @@
   function hopCharacter() { charState.hop = [-2, -4, -5, -4, -2, 0, -1, 0]; }
 
   // Walking: the character strolls left and right along the floor.
-  var ROOM_W = 320, ROOM_H = 180, WALK_MIN = 34, WALK_MAX = 286, FEET_MIN = 128, FEET_MAX = 168, WALK_SPEED = 16;   // room pixels per second
+  var ROOM_W = 320, ROOM_H = 180, WALK_MIN = 40, WALK_MAX = 262, FEET_MIN = 132, FEET_MAX = 172, WALK_SPEED = 16;   // room pixels per second
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var walker = { x: 196, y: 150, target: 196, targetY: 150, facing: 1, restUntil: 0, last: 0 };
+  var walker = { x: 200, y: 156, target: 200, targetY: 156, facing: 1, restUntil: 0, last: 0 };
   var charBuffer = null;
 
   function placeWalker() {
@@ -187,11 +190,11 @@
     if (!host) return;
     host.style.left = (walker.x / ROOM_W * 100).toFixed(3) + '%';
     // the canvas bottom sits 2px below the feet
-    host.style.bottom = ((ROOM_H - (walker.y + 2)) / ROOM_H * 100).toFixed(3) + '%';
+    host.style.bottom = ((ROOM_H - (walker.y + (CHAR_H - CHAR_OY - FEET))) / ROOM_H * 100).toFixed(3) + '%';
     // depth: walk behind the cat when further back in the room
     var catEl = document.getElementById('sleepyCat');
     var catFeet = 146;
-    if (catEl && catEl.style.bottom) catFeet = ROOM_H - parseFloat(catEl.style.bottom) / 100 * ROOM_H - 7;
+    if (catEl && catEl.style.bottom) catFeet = ROOM_H - parseFloat(catEl.style.bottom) / 100 * ROOM_H - (CAT_H - CAT_OY - CAT_FEET);
     host.style.zIndex = walker.y < catFeet ? '5' : '7';
   }
 
@@ -241,8 +244,8 @@
     var hopY = charState.hop.length ? charState.hop.shift() : (walking && phase % 2 === 0 ? -1 : 0);
     // soft floor shadow
     ctx.fillStyle = 'rgba(58,38,48,.22)';
-    ctx.fillRect(CHAR_OX + 8, CHAR_OY + CH - 2, 16, 2);
-    ctx.fillRect(CHAR_OX + 6, CHAR_OY + CH - 1, 20, 1);
+    ctx.fillRect(CHAR_OX + CW / 2 - 10, CHAR_OY + FEET - 1, 20, 2);
+    ctx.fillRect(CHAR_OX + CW / 2 - 12, CHAR_OY + FEET, 24, 1);
     // draw into a buffer so we can mirror it when walking left
     if (!charBuffer) { charBuffer = document.createElement('canvas'); charBuffer.width = CW; charBuffer.height = CH; }
     var b = charBuffer.getContext('2d');
@@ -256,11 +259,11 @@
     ctx.drawImage(charBuffer, CHAR_OX, CHAR_OY + hopY);
     ctx.restore();
     var bob = Math.floor(now / 500) % 2;
-    drawIcon(ctx, look.emote || 'happy', 28, 1 + bob + Math.min(0, hopY));
+    drawIcon(ctx, look.emote || 'happy', CHAR_W - 18, 1 + bob + Math.min(0, hopY));
   }
 
   // ---------------------------------------------------------------- cat widget
-  var CAT_W = 40, CAT_H = 48, CAT_OX = 4, CAT_OY = 18;
+  var CAT_OX = 4, CAT_OY = 16, CAT_W = KW + CAT_OX * 2, CAT_H = KH + CAT_OY;
   var catCanvas = null;
   var cat = { mode: 'sit', since: 0, until: 0, nextBlink: 0, blinkUntil: 0, coat: 'ginger', hop: [], hearts: [] };
 
@@ -292,9 +295,9 @@
       if (isNaN(left) || isNaN(top)) return;
       // cushion sits ~3px above the item's centre; the sleeping cat's body ends 7px above the canvas bottom
       var RH = (ROOM && ROOM.size[1]) || 180;
-      var cushionY = top / 100 * RH + 3;
+      var cushionY = top / 100 * RH + 4;
       host.style.left = (left + 1).toFixed(2) + '%';
-      host.style.bottom = ((RH - (cushionY + 7 + 2)) / RH * 100).toFixed(2) + '%';
+      host.style.bottom = ((RH - (cushionY + (CAT_H - CAT_OY - (META.cat.loafBottom || KH - 2)))) / RH * 100).toFixed(2) + '%';
       host.style.zIndex = '8';
       cat.inBed = true;
     } else {
@@ -307,7 +310,7 @@
     var now = performance.now();
     cat.mode = 'happy'; cat.since = now; cat.until = now + 1600;
     cat.hop = [-2, -4, -4, -2, 0, 0, -2, -3, -2, 0];
-    cat.hearts.push({ x: 6 + Math.random() * 8, born: now }, { x: 18 + Math.random() * 8, born: now + 250 });
+    cat.hearts.push({ x: CAT_W * 0.2 + Math.random() * 8, born: now }, { x: CAT_W * 0.5 + Math.random() * 8, born: now + 250 });
   }
   function drawHeart(ctx, x, y) {
     ctx.fillStyle = '#3a2630';
@@ -350,20 +353,20 @@
     var hopY = cat.hop.length ? cat.hop.shift() : 0;
     // shadow
     ctx.fillStyle = 'rgba(58,38,48,.2)';
-    ctx.fillRect(CAT_OX + 3, CAT_OY + KH - 2, 22, 2);
+    ctx.fillRect(CAT_OX + KW / 2 - 11, CAT_OY + CAT_FEET, 22, 2);
     var sheet = recoloured('cat', catPalette(cat.coat));
     ctx.drawImage(sheet, frameXY(frame), 0, KW, KH, CAT_OX, CAT_OY + hopY, KW, KH);
 
     if (cat.mode === 'sleep') {
       var phase = ((now - cat.since) / 1400) % 3;
-      if (phase > 0.4) drawZ(ctx, 27, 20 - Math.floor(phase * 2), 4);
-      if (phase > 1.4) drawZ(ctx, 32, 12 - Math.floor(phase * 2), 5);
+      if (phase > 0.4) drawZ(ctx, CAT_W - 18, 22 - Math.floor(phase * 2), 4);
+      if (phase > 1.4) drawZ(ctx, CAT_W - 12, 14 - Math.floor(phase * 2), 5);
     }
     cat.hearts = cat.hearts.filter(function (h) { return now - h.born < 1300; });
     cat.hearts.forEach(function (h) {
       var age = now - h.born;
       if (age < 0) return;
-      drawHeart(ctx, Math.round(h.x), Math.round(12 - age / 110));
+      drawHeart(ctx, Math.round(h.x), Math.round(CAT_OY - 2 - age / 110));
     });
   }
 
@@ -375,16 +378,16 @@
       el.textContent = '';
       c = document.createElement('canvas');
       c.className = 'portrait-canvas sprite-canvas';
-      c.width = 26; c.height = 24;
+      c.width = HEAD[2]; c.height = HEAD[3];
       el.appendChild(c);
     }
     var draw = function () {
       var ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, 26, 24);
+      ctx.clearRect(0, 0, HEAD[2], HEAD[3]);
       var tmp = document.createElement('canvas');
       tmp.width = CW; tmp.height = CH;
       drawCharacter(tmp.getContext('2d'), 0, 0, false, 0);
-      ctx.drawImage(tmp, 3, 0, 26, 24, 0, 1, 26, 24);
+      ctx.drawImage(tmp, HEAD[0], HEAD[1], HEAD[2], HEAD[3], 0, 0, HEAD[2], HEAD[3]);
     };
     if (ready()) draw(); else onReady.push(draw);
   }
@@ -539,7 +542,7 @@
   function previewInto(el, overrides, crop) {
     if (!el) return;
     var head = crop === 'head';
-    var w = head ? 26 : CW, h = head ? 24 : CH;
+    var w = head ? HEAD[2] : CW, h = head ? HEAD[3] : CH;
     var c = el.querySelector('canvas.preview-canvas');
     if (!c) {
       c = document.createElement('canvas');
@@ -556,7 +559,7 @@
       look = saved;
       var ctx = c.getContext('2d');
       ctx.clearRect(0, 0, w, h);
-      if (head) ctx.drawImage(tmp, 3, 0, 26, 24, 0, 0, 26, 24);
+      if (head) ctx.drawImage(tmp, HEAD[0], HEAD[1], HEAD[2], HEAD[3], 0, 0, HEAD[2], HEAD[3]);
       else ctx.drawImage(tmp, 0, 0);
     };
     if (ready()) draw(); else onReady.push(draw);

@@ -9,7 +9,9 @@ Run it from the project folder:   python3 tools/build_sprites.py
 
 How the grids work
 ------------------
-* Every character cell is 32 x 44 pixels, every cat cell is 32 x 28.
+* Every character cell is 48 x 64 pixels, every cat cell is 40 x 34.
+* Shapes are built from simple geometry (ellipses, rectangles) plus
+  hand-placed pixels, then outlined and shaded automatically.
 * A grid written with 16 characters per line is a HALF grid: it is mirrored
   to make a symmetric 32-pixel-wide shape (great for heads, bodies, outfits).
 * Each "part" gets an automatic dark outline and automatic shading
@@ -25,8 +27,8 @@ import json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'assets', 'sprites')
 
-W, H = 32, 44          # character cell
-CW, CH = 32, 28        # cat cell
+W, H = 48, 64          # character cell
+CW, CH = 40, 34        # cat cell
 
 PAL = {
     # outline
@@ -51,6 +53,7 @@ PAL = {
     'u': '#f6a7b8', 'U': '#e07b95',            # flower petals
     'i': '#ffffff',                             # pure sparkle
     'x': '#7cc4e8', 'X': '#4f97c2',            # light blue (tears, zz)
+    'j': '#6d4c6b',                             # lower iris
 }
 # fill colour -> (shade, light or None)
 SHADE = {'s': ('S', None), 'h': ('H', 'l'), 'c': ('C', 'L'), 'p': ('P', None),
@@ -133,125 +136,149 @@ def empty(width=W, height=H):
 def flip(g):
     return [row[::-1] for row in g]
 
-# ---------------------------------------------------------------- BODY
-HEAD = grid([
-    '..........ssssss',   # 4
-    '........ssssssss',
-    '.......sssssssss',
-    '......ssssssssss',
-    '.....sssssssssss',   # 8
-    '.....sssssssssss',
-    '.....sssssssssss',
-    '.....sssssssssss',
-    '....ssssssssssss',   # 12
-    '...sssssssssssss',
-    '...sssssssssssss',
-    '....ssssssssssss',
-    '.....sssssssssss',   # 16
-    '.....sssssssssss',
-    '......ssssssssss',
-    '.......sssssssss',
-    '.........sssssss',   # 20
-    '...........sssss',
-], start=4)
-NECK = grid(['............ssss'] * 3, start=20)
-TORSO = grid(['..........ssssss'] + ['.........sssssss'] * 10, start=23)
-LEG = grid(['...........sss..'] * 7, start=34)
-ARM = grid([
-    '.........ss.....',  # 24
-    '........sss.....',
-    '.......ssss.....',
-    '.......ssss.....',
-    '.......ssss.....',
-    '......ssss......',
-    '......ssss......',  # 30
-    '......ssss......',
-    '......ssss......',
-    '......ssss......',
-    '.......ss.......',  # 34
-], start=24)
+# ---------------------------------------------------------------- shape helpers
+CX = (W - 1) / 2      # horizontal centre (23.5)
+
+
+def recolor(g, pts, ch):
+    """Like put(), but only paints pixels that are already part of the shape."""
+    for x, y in pts:
+        if g[y][x] not in ('.', 'O'):
+            g[y][x] = ch
+    return g
+
+
+def shape(test, ch, w=W, h=H):
+    g = empty(w, h)
+    for y in range(h):
+        for x in range(w):
+            if test(x, y):
+                g[y][x] = ch
+    return g
+
+
+def inell(x, y, cx, cy, rx, ry):
+    return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1
+
+
+def sym(test, w=W):
+    """Mirror a left-side test to both sides."""
+    return lambda x, y: test(x, y) or test(w - 1 - x, y)
+
+
+def stamp(g, x0, y0, rows, mapping=None):
+    for j, row in enumerate(rows):
+        for i, ch in enumerate(row):
+            if ch != '.':
+                g[y0 + j][x0 + i] = mapping.get(ch, ch) if mapping else ch
+    return g
+
+# ---------------------------------------------------------------- BODY (48 x 64)
+HEAD_T = lambda x, y: inell(x, y, CX, 17, 14.6, 13.2)
+EAR_T = sym(lambda x, y: inell(x, y, 8.6, 19.5, 2.2, 3.0))
+NECK_T = lambda x, y: 21 <= x <= 26 and 28 <= y <= 33
+TORSO_T = lambda x, y: 31 <= y <= 47 and abs(x - CX) <= 7.5
+LEG_T = sym(lambda x, y: 46 <= y <= 58 and 18 <= x <= 22)
+
+
+def arm_test(top=32, bottom=47):
+    def t(x, y):
+        if not (top <= y <= bottom):
+            return False
+        sh = (y - top) // 8
+        return 12 - sh <= x <= 15 - sh
+    return sym(t)
+
+
+HAND_T = sym(lambda x, y: inell(x, y, 12.2, 46.5, 2.4, 2.4))
 
 
 def body_layer():
-    g = stack(outline(NECK), outline(TORSO), outline(LEG), outline(ARM), outline(HEAD, light=False))
-    # ear detail + neck shadow
-    put(g, mirror_pts([(4, 14), (4, 15)]), 'S')
-    put(g, mirror_pts([(13, 22), (14, 22), (15, 22)]), 'S')
-    # soft cheek highlight
-    put(g, [(8, 9), (9, 8)], 'q')
+    g = stack(outline(shape(NECK_T, 's')), outline(shape(TORSO_T, 's')), outline(shape(LEG_T, 's')),
+              outline(shape(arm_test(), 's')), outline(shape(HAND_T, 's'), light=False),
+              outline(shape(EAR_T, 's'), light=False), outline(shape(HEAD_T, 's'), light=False))
+    put(g, mirror_pts([(8, 19), (8, 20)]), 'S')               # inner ear
+    put(g, mirror_pts([(21, 31), (22, 31), (23, 31)]), 'S')  # shadow under the chin
+    put(g, [(13, 9), (14, 8), (15, 8), (12, 10)], 'q')       # forehead shine
     return g
 
 # ---------------------------------------------------------------- FACES
-EYE_OPEN = [(10, 13), (11, 13), (10, 14), (11, 14), (10, 15), (11, 15)]
-EYE_R = [(x + 10, y) for x, y in EYE_OPEN]
+EYE_L, EYE_R, EYE_Y = 14, 30, 19
+EYE_OPEN = ['.ee.', 'eeee', 'eiee', 'eeee', 'ejje', '.ee.']
+EYE_DOWN = ['....', '.ee.', 'eeee', 'eeee', 'eije', '.ee.']
 
 
-def eyes_open(g, sparkle=False, look=0):
-    for pts in (EYE_OPEN, EYE_R):
-        for x, y in pts:
-            g[y][x + look] = 'e'
-        x0 = pts[0][0] + look
-        g[13][x0] = 'i'
+def eyes_open(g, sparkle=False, down=False):
+    for x0 in (EYE_L, EYE_R):
+        stamp(g, x0, EYE_Y, EYE_DOWN if down else EYE_OPEN)
         if sparkle:
-            g[15][x0 + 1] = 'i'
+            g[EYE_Y + 4][x0 + 2] = 'i'
+            g[EYE_Y + 1][x0 + 2] = 'i'
     return g
 
 
 def eyes_closed(g, droop=False):
-    for x0 in (10, 20):
+    for x0 in (EYE_L, EYE_R):
         if droop:
-            put(g, [(x0 - 1, 15), (x0, 15), (x0 + 1, 15), (x0 + 2, 15)], 'e')
-        else:   # happy ^ ^
-            put(g, [(x0 - 1, 15), (x0, 14), (x0 + 1, 14), (x0 + 2, 15)], 'e')
+            put(g, [(x0 - 1, 22), (x0, 23), (x0 + 1, 23), (x0 + 2, 23), (x0 + 3, 23), (x0 + 4, 22)], 'e')
+        else:
+            put(g, [(x0 - 1, 23), (x0, 22), (x0 + 1, 21), (x0 + 2, 21), (x0 + 3, 22), (x0 + 4, 23)], 'e')
+    return g
+
+
+def brows(g, kind='soft'):
+    for x0 in (EYE_L, EYE_R):
+        if kind == 'worried':
+            pts = [(x0, 16), (x0 + 1, 16), (x0 + 2, 15), (x0 + 3, 15)] if x0 == EYE_L else [(x0, 15), (x0 + 1, 15), (x0 + 2, 16), (x0 + 3, 16)]
+        else:
+            pts = [(x0, 16), (x0 + 1, 15), (x0 + 2, 15), (x0 + 3, 16)]
+        put(g, pts, 'H')
     return g
 
 
 def blush(g, wide=False):
-    pts = [(7, 16), (8, 16)] + ([(9, 16), (7, 17), (8, 17)] if wide else [])
-    put(g, mirror_pts(pts), 'b')
+    rx = 2.8 if wide else 2.1
+    for y in range(24, 28):
+        for x in range(8, 40):
+            if inell(x, y, 12.8, 25.6, rx, 1.2) or inell(x, y, W - 1 - 12.8, 25.6, rx, 1.2):
+                g[y][x] = 'b'
+    if wide:
+        put(g, [(11, 25), (13, 25), (34, 25), (36, 25)], 'R')
     return g
 
 
 def lashes(g):
-    put(g, [(9, 12), (22, 12)], 'e')
+    put(g, [(13, 19), (12, 18), (34, 19), (35, 18)], 'e')
     return g
 
 
 def mouth(g, kind):
-    if kind == 'smile':
-        put(g, [(14, 17), (17, 17), (15, 18), (16, 18)], 'm')
-    elif kind == 'open':
-        put(g, [(14, 17), (15, 17), (16, 17), (17, 17), (14, 18), (17, 18), (15, 19), (16, 19)], 'm')
-        put(g, [(15, 18), (16, 18)], 't')
-    elif kind == 'small':
-        put(g, [(15, 18), (16, 18)], 'm')
-    elif kind == 'o':
-        put(g, [(15, 17), (16, 17), (15, 18), (16, 18)], 'm')
-    elif kind == 'smirk':
-        put(g, [(15, 18), (16, 18), (17, 17)], 'm')
-    elif kind == 'wavy':
-        put(g, [(14, 18), (15, 17), (16, 18), (17, 17)], 'm')
-    elif kind == 'cat':
-        put(g, [(14, 17), (15, 18), (16, 17), (17, 18)], 'm')
+    m = {
+        'smile': [(22, 26), (25, 26), (23, 27), (24, 27)],
+        'open': [(22, 26), (23, 26), (24, 26), (25, 26), (22, 27), (25, 27), (23, 28), (24, 28)],
+        'small': [(23, 27), (24, 27)],
+        'o': [(23, 26), (24, 26), (23, 27), (24, 27)],
+        'smirk': [(23, 27), (24, 27), (25, 26)],
+        'wavy': [(21, 27), (22, 26), (23, 27), (24, 26), (25, 27)],
+    }[kind]
+    put(g, m, 'm')
+    if kind == 'open':
+        put(g, [(23, 27), (24, 27)], 't')
     return g
 
 
 def heart_eyes(g):
-    for x0 in (9, 19):
-        put(g, [(x0, 13), (x0 + 2, 13), (x0, 14), (x0 + 1, 14), (x0 + 2, 14), (x0 + 1, 15)], 'r')
-        put(g, [(x0 + 1, 13)], 'R')
-        put(g, [(x0, 13)], 'i')
+    for x0 in (EYE_L - 1, EYE_R - 1):
+        stamp(g, x0, EYE_Y, ['.r.r.', 'rrrrr', 'rrrrr', '.rrr.', '..r..'])
+        g[EYE_Y + 1][x0] = 'i'
+        g[EYE_Y + 1][x0 + 4] = 'R'
     return g
 
 
 def shades(g):
-    for x0 in (8, 18):
-        for y in (13, 14, 15):
-            for x in range(x0, x0 + 5):
-                if not (y == 15 and x in (x0, x0 + 4)):
-                    g[y][x] = 'n'
-        put(g, [(x0 + 1, 13), (x0 + 2, 14)], 'N')
-    put(g, [(13, 13), (14, 13), (15, 13), (16, 13), (17, 13), (6, 13), (7, 13), (25, 13), (24, 13)], 'O')
+    for x0 in (12, 28):
+        stamp(g, x0, 18, ['nnnnnnnn', 'nNNnnnnn', 'nnNnnnnn', 'nnnnnnnn', '.nnnnnn.'])
+    put(g, [(x, 19) for x in range(20, 28)] + [(9, 19), (10, 19), (11, 19), (36, 19), (37, 19), (38, 19)], 'O')
     return g
 
 
@@ -262,227 +289,166 @@ def face(expr, blink=False, girl=False):
     g = empty()
     if expr == 'happy':
         eyes_closed(g) if blink else eyes_open(g)
-        mouth(g, 'smile'); blush(g)
+        brows(g); mouth(g, 'smile'); blush(g)
     elif expr == 'love':
         eyes_closed(g) if blink else heart_eyes(g)
-        mouth(g, 'cat'); blush(g, wide=True)
+        brows(g); mouth(g, 'open'); blush(g, wide=True)
     elif expr == 'excited':
         eyes_closed(g) if blink else eyes_open(g, sparkle=True)
-        mouth(g, 'open'); blush(g)
+        brows(g); mouth(g, 'open'); blush(g)
     elif expr == 'sleepy':
         eyes_closed(g, droop=True)
-        mouth(g, 'o')
+        brows(g, 'worried'); mouth(g, 'o')
     elif expr == 'cool':
-        shades(g); mouth(g, 'smirk')
+        shades(g); brows(g); mouth(g, 'smirk')
     elif expr == 'shy':
-        eyes_closed(g) if blink else eyes_open(g, look=-1)
-        mouth(g, 'wavy'); blush(g, wide=True)
+        eyes_closed(g) if blink else eyes_open(g, down=True)
+        brows(g, 'worried'); mouth(g, 'wavy'); blush(g, wide=True)
     if girl and not blink and expr in ('happy', 'excited', 'shy'):
         lashes(g)
     return g
 
 # ---------------------------------------------------------------- OUTFITS
-PANTS = grid(['..........cccccc'] * 2 + ['..........ccccc.'] * 6, start=33)
-SHOE = grid(['..........kkkkk.', '.........kkkkkk.', '.........kkkkkk.', '.........kkkkkk.'], start=40)
+def torso_test(top=31, bottom=48):
+    def t(x, y):
+        if not (top <= y <= bottom):
+            return False
+        half = 6.5 if y == top else (8.0 if y == top + 1 else 8.6)
+        return abs(x - CX) <= half
+    return t
 
 
-def shirt_torso(ch='c', start=22):
-    return grid(['..........' + ch * 6, '.........' + ch * 7] + ['........' + ch * 8] * 11, start=start)
+def sleeve_test(bottom):
+    def t(x, y):
+        if not (32 <= y <= bottom):
+            return False
+        sh = (y - 32) // 8
+        return 11 - sh <= x <= 16 - sh
+    return sym(t)
 
 
-def sleeve(rows, ch='c'):
-    shape = ['.........cc.....', '........ccc.....', '.......cccc.....', '.......cccc.....',
-             '.......cccc.....', '......cccc......', '......cccc......', '......cccc......']
-    return grid([r.replace('c', ch) for r in shape[:rows]], start=24)
-
-
-def pants(ch='p'):
-    return outline(grid([r.replace('c', ch) for r in ['..........cccccc'] * 2 + ['..........ccccc.'] * 6], start=33))
+PANTS_T = lambda x, y: (45 <= y <= 49 and 17 <= x <= 30) or (49 <= y <= 57 and (17 <= x <= 22 or 25 <= x <= 30))
+SHOE_T = sym(lambda x, y: 56 <= y <= 62 and inell(x, y, 18.6, 59.6, 4.4, 2.9))
 
 
 def outfit(style):
-    shoes = outline(SHOE)
+    shoes = outline(shape(SHOE_T, 'k'))
+    put(shoes, [(x, 61) for x in range(15, 33) if shoes[61][x] not in ('.', 'O')], 'w')
+    pants_ch = 'c' if style == 'overalls' else 'p'
+    pants = outline(shape(PANTS_T, pants_ch))
+    put(pants, [(23, y) for y in range(49, 58)] + [(24, y) for y in range(49, 58)], '.')
+    pants = outline(pants)
     if style == 'hoodie':
-        t = outline(shirt_torso())
-        put(t, mirror_pts([(14, 24), (14, 25), (14, 26)]), 'w')          # strings
-        put(t, mirror_pts([(11, 30), (12, 29), (13, 29), (14, 29), (15, 29)]), 'C')   # pocket
-        put(t, [(x, 33) for x in range(9, 23)], 'C')                       # ribbed hem
-        hood = outline(grid(['........cccccccc', '.........ccccccc'], start=21))
-        t = stack(hood, t)
-        put(t, [(x, 22) for x in range(11, 21)], 'C')
-        g = stack(pants(), t, outline(sleeve(8)), shoes)
-        put(g, mirror_pts([(7, 31), (8, 31)]), 'C')                        # cuffs
+        hood = outline(shape(lambda x, y: inell(x, y, CX, 31, 9.5, 3.2) and y <= 32, 'c'))
+        t = outline(shape(torso_test(), 'c'))
+        put(t, [(21, y) for y in range(33, 38)] + [(26, y) for y in range(33, 38)], 'w')
+        put(t, [(21, 38), (26, 38)], 'W')
+        put(t, [(x, 40) for x in range(18, 30)] + [(18, y) for y in range(41, 45)] + [(29, y) for y in range(41, 45)], 'C')
+        put(t, [(x, 47) for x in range(16, 32)], 'C')
+        g = stack(pants, hood, t, outline(shape(sleeve_test(44), 'c')), shoes)
+        recolor(g, [(x, 44) for x in range(8, 17)] + [(x, 44) for x in range(31, 40)], 'C')
+        put(g, [(x, 31) for x in range(19, 29)], 'C')
     elif style == 'tee':
-        t = outline(shirt_torso())
-        put(t, mirror_pts([(13, 22), (14, 23), (15, 23)]), 'C')             # neckline
-        put(t, mirror_pts([(13, 27), (14, 27)]), 'L')                       # little print
-        put(t, [(15, 27), (16, 27), (15, 28), (16, 28)], 'y')
-        g = stack(pants(), t, outline(sleeve(4)), shoes)
+        t = outline(shape(torso_test(), 'c'))
+        put(t, [(20, 31), (21, 32), (22, 33), (23, 33), (24, 33), (25, 33), (26, 32), (27, 31)], 'C')
+        stamp(t, 21, 37, ['..y..', '.yyy.', 'yyyyy', '.y.y.'], {})
+        g = stack(pants, t, outline(shape(sleeve_test(37), 'c')), shoes)
+        recolor(g, [(x, 37) for x in range(9, 17)] + [(x, 37) for x in range(31, 39)], 'C')
     elif style == 'cardigan':
-        inner = outline(shirt_torso('w'))
-        t = outline(shirt_torso())
-        for y in range(22, 35):
-            for x in range(13, 19):
-                t[y][x] = inner[y][x]
-        put(t, [(12, y) for y in range(23, 35)], 'C')
-        put(t, [(19, y) for y in range(23, 35)], 'C')
-        put(t, [(12, 26), (12, 29), (12, 32)], 'y')                         # buttons
-        g = stack(pants(), t, outline(sleeve(8)), shoes)
-        put(g, mirror_pts([(7, 31), (8, 31)]), 'L')
-    elif style == 'overalls':
-        shirt = outline(shirt_torso('w'))
-        bib = outline(grid(['...........ccccc'] * 8, start=27))
-        straps = grid(['..........cc....'] * 4, start=23)
-        g = stack(pants('c'), shirt, outline(sleeve(4, 'w')), bib, shoes)
-        put(g, mirror_pts([(11, y) for y in range(22, 27)]), 'c')
-        put(g, mirror_pts([(12, y) for y in range(22, 27)]), 'C')
-        put(g, mirror_pts([(11, 27)]), 'y')                                 # buckles
-        put(g, [(14, 30), (15, 30), (16, 30), (17, 30)], 'C')               # bib pocket
-        put(g, [(14, 31), (17, 31)], 'C')
+        t = outline(shape(torso_test(), 'c'))
+        inner = outline(shape(lambda x, y: torso_test()(x, y) and 20 <= x <= 27, 'w'))
+        t = stack(t, inner)
+        put(t, [(19, y) for y in range(32, 48)] + [(28, y) for y in range(32, 48)], 'C')
+        put(t, [(19, 36), (19, 40), (19, 44)], 'y')
+        put(t, [(15, 41), (16, 41), (17, 41), (30, 41), (31, 41), (32, 41)], 'C')   # pockets
+        g = stack(pants, t, outline(shape(sleeve_test(44), 'c')), shoes)
+        recolor(g, [(x, 44) for x in range(8, 17)] + [(x, 44) for x in range(31, 40)], 'L')
+    else:  # overalls
+        shirt = outline(shape(torso_test(), 'w'))
+        bib = outline(shape(lambda x, y: 38 <= y <= 48 and 17 <= x <= 30, 'c'))
+        g = stack(pants, shirt, outline(shape(sleeve_test(37), 'w')), bib, shoes)
+        put(g, [(18, y) for y in range(31, 39)] + [(29, y) for y in range(31, 39)], 'c')
+        put(g, [(19, y) for y in range(31, 38)] + [(28, y) for y in range(31, 38)], 'C')
+        put(g, [(18, 38), (19, 38), (28, 38), (29, 38)], 'y')
+        put(g, [(x, 41) for x in range(21, 27)] + [(21, 42), (26, 42), (21, 43), (26, 43)], 'C')
     return g
 
 # ---------------------------------------------------------------- HAIR
-# Each style has a "back" layer (behind the head) and a "front" layer.
+CAP_T = lambda x, y: inell(x, y, CX, 15.4, 16.2, 13.6)
+FACE_T = lambda x, y: inell(x, y, CX, 21.5, 12.4, 11.2)
+
+
+def bang_cut(bang, sides_to=29, side_w=4):
+    """Hair cap minus the face window below the bang line."""
+    def t(x, y):
+        if not CAP_T(x, y):
+            return False
+        if FACE_T(x, y) and y > bang(x):
+            return False
+        if y > sides_to:
+            return False
+        return True
+    return t
+
+
+def shine(g):
+    for y in range(2, 14):
+        for x in range(6, 42):
+            if g[y][x] in ('h',) and inell(x, y, 19, 11, 11, 7.5) and not inell(x, y, 19, 12.5, 9.5, 6.0) and x < 28:
+                g[y][x] = 'l'
+    return g
+
+
+def jagged(base, amp, period=6, phase=0):
+    pattern = [0, 1, 2, 3, 2, 1][:period]
+    return lambda x: base + amp * pattern[(x + phase) % len(pattern)] / 3
+
 
 def hair(style, gender):
     back = empty()
     if style == 'default':
         style = 'bob' if gender == 'girl' else 'tousled'
     if style == 'bob':
-        back = outline(grid(['.....hhhhhhhhhhh'] * 13 + ['......hhhhhhhhhh', '.......hhhhhhhhh'], start=8))
-        front = outline(grid([
-            '...........hhhhh',  # 2
-            '.........hhhhhhh',
-            '.......hhhhhhhhh',
-            '......hhhhhhhhhh',
-            '.....hhhhhhhhhhh',  # 6
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',  # 10
-            '...hhhhh.hhhhhh.',
-            '...hhhh...hhhh..',
-            '...hhh..........',
-            '...hhh..........',  # 14
-            '...hhh..........',
-            '...hhh..........',
-            '...hhhh.........',
-            '...hhhh.........',  # 18
-            '....hhh.........',
-            '.....h..........',
-        ], start=2))
-        put(front, [(8, 5), (9, 4), (10, 4), (7, 6)], 'l')
-        put(front, [(15, 8), (16, 8), (15, 9), (21, 7), (10, 9)], 'H')
+        back = outline(shape(lambda x, y: inell(x, y, CX, 20, 16.6, 14.5) and y <= 34, 'h'))
+        locks = sym(lambda x, y: 18 <= y <= 33 and 7 <= x <= 11 + (1 if y < 26 else 0))
+        front = outline(shape(lambda x, y: bang_cut(jagged(12, 3))(x, y) or locks(x, y), 'h'))
     elif style == 'tousled':
-        front = outline(grid([
-            '..........h..hh.',  # 1
-            '.........hhhhhhh',
-            '........hhhhhhhh',
-            '......hhhhhhhhhh',
-            '.....hhhhhhhhhhh',  # 5
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',  # 9
-            '....hhhhhhhhhhhh',
-            '....hhhhhhh.hhhh',
-            '....hhh.hh...hh.',
-            '....hh..........',  # 13
-            '....h...........',
-        ], start=1))
-        put(front, [(8, 5), (9, 4), (10, 4), (11, 3), (7, 6)], 'l')
-        put(front, [(14, 7), (15, 8), (20, 7), (19, 8), (11, 8)], 'H')
+        spikes = lambda x, y: inell(x, y, 16.5, 3.2, 2.4, 3.0) or inell(x, y, 23.5, 2.0, 2.6, 3.0) or inell(x, y, 30.5, 3.2, 2.4, 3.0)
+        side = sym(lambda x, y: 16 <= y <= 22 and 8 <= x <= 10)
+        front = outline(shape(lambda x, y: bang_cut(jagged(13, 4, phase=2), sides_to=22)(x, y) or spikes(x, y) or side(x, y), 'h'))
     elif style == 'short':
-        front = outline(grid([
-            '..........hhhhhh',  # 3
-            '........hhhhhhhh',
-            '......hhhhhhhhhh',
-            '.....hhhhhhhhhhh',
-            '....hhhhhhhhhhhh',  # 7
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhh......',  # 11
-            '....hhh.........',
-            '....hh..........',
-        ], start=3))
-        # side-swept fringe
-        for x in range(16, 22):
-            front[11][x] = 'h'
-        front[11][22] = 'O'; front[12][21] = 'O'; front[12][20] = 'O'
-        put(front, [(8, 6), (9, 5), (10, 5), (7, 7)], 'l')
-        put(front, [(17, 9), (18, 10), (13, 9)], 'H')
+        side = sym(lambda x, y: 16 <= y <= 21 and 8 <= x <= 10)
+        front = outline(shape(lambda x, y: bang_cut(lambda x: 8 + (x - 8) * 0.22, sides_to=21)(x, y) or side(x, y), 'h'))
     elif style == 'bun':
-        bun = outline(grid(['............hhhh', '...........hhhhh', '...........hhhhh', '............hhhh'], start=0))
-        front = stack(bun, outline(grid([
-            '..........hhhhhh',  # 3
-            '........hhhhhhhh',
-            '......hhhhhhhhhh',
-            '.....hhhhhhhhhhh',
-            '....hhhhhhhhhhhh',  # 7
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhh.hhhhhh',  # 11
-            '....hhh....hhhh.',
-            '....hh..........',
-            '....hh..........',
-            '.....h..........',
-        ], start=3)))
-        put(front, [(13, 1), (14, 1), (9, 5), (10, 5), (8, 6)], 'l')
-        put(front, [(15, 4), (16, 4), (16, 9), (21, 8)], 'H')
+        bun = outline(shape(lambda x, y: inell(x, y, CX, 3.2, 6.2, 4.4), 'h'))
+        side = sym(lambda x, y: 16 <= y <= 24 and 8 <= x <= 10)
+        front = stack(bun, outline(shape(lambda x, y: bang_cut(jagged(12, 3, phase=1), sides_to=24)(x, y) or side(x, y), 'h')))
     elif style == 'curly':
-        back = outline(grid(['....hhhhhhhhhhhh'] * 12 + ['.....hhhhhhhhhhh', '......hhh.hhh.hh'], start=9))
-        front = outline(grid([
-            '.........hh.hhhh',  # 1
-            '.......hhhhhhhhh',
-            '.....hhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '...hhhhhhhhhhhhh',  # 5
-            '..hhhhhhhhhhhhhh',
-            '..hhhhhhhhhhhhhh',
-            '..hhhhhhhhhhhhhh',
-            '..hhhhhhhhhhhhhh',  # 9
-            '..hhhhh.hhh.hhh.',
-            '..hhhh.....h....',
-            '..hhhh..........',
-            '..hhhh..........',  # 13
-            '..hhh...........',
-            '...hhh..........',
-            '..hhhh..........',
-            '...hh...........',  # 17
-        ], start=1))
-        curls = [(6, 4), (9, 3), (12, 2), (5, 7), (8, 6), (11, 5), (14, 4), (4, 10), (7, 9), (10, 8), (13, 7),
-                 (17, 3), (20, 4), (23, 6), (18, 6), (21, 7), (25, 9), (16, 8), (19, 9), (22, 10)]
-        put(front, curls, 'H')
-        put(front, [(7, 4), (10, 3), (6, 7), (9, 6), (12, 5)], 'l')
-    elif style == 'long':
-        back = outline(grid(['.....hhhhhhhhhhh'] * 22 + ['......hhhhhhhhhh', '.......hhhhhhhhh'], start=8))
-        put(back, mirror_pts([(8, 30), (9, 31), (11, 29)]), 'H')
-        front = outline(grid([
-            '...........hhhhh',  # 2
-            '.........hhhhhhh',
-            '.......hhhhhhhhh',
-            '......hhhhhhhhhh',
-            '.....hhhhhhhhhhh',  # 6
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhhhh',
-            '....hhhhhhhhhh.h',  # 10
-            '...hhhhhhhhhh...',
-            '...hhhh.hhh.....',
-            '...hhh..........',
-            '...hhh..........',  # 14
-            '...hhh..........',
-            '...hhh..........',
-            '...hhh..........',
-            '...hhh..........',  # 18
-            '...hhh..........',
-            '...hhh..........',
-            '....hh..........',
-        ], start=2))
-        put(front, [(8, 5), (9, 4), (10, 4), (7, 6)], 'l')
-        put(front, [(15, 6), (15, 7), (16, 8), (14, 9)], 'H')
+        import math
+        def bumpy(x, y, cx, cy, rx, ry):
+            a = math.atan2(y - cy, x - cx)
+            k = 1 + 0.07 * math.sin(a * 9)
+            return inell(x, y, cx, cy, rx * k, ry * k)
+        back = outline(shape(lambda x, y: bumpy(x, y, CX, 22, 19, 17) and y <= 40, 'h'))
+        front = outline(shape(lambda x, y: bumpy(x, y, CX, 15, 18, 14.5) and not (FACE_T(x, y) and y > jagged(13, 3)(x)) and y <= 28, 'h'))
+        for y in range(1, 41):
+            for x in range(W):
+                if (x * 3 + y * 5) % 11 == 0:
+                    for gg in (front, back):
+                        if gg[y][x] == 'h':
+                            gg[y][x] = 'H'
+    else:  # long
+        back = outline(shape(lambda x, y: (inell(x, y, CX, 20, 16.6, 14.5) or (20 <= y <= 50 and 8 <= x <= 39)) and not (y > 47 and abs(x - CX) > 13 - (y - 47) * 2), 'h'))
+        locks = sym(lambda x, y: 18 <= y <= 42 and 7 <= x <= 11)
+        front = outline(shape(lambda x, y: bang_cut(jagged(12, 3, phase=3))(x, y) or locks(x, y), 'h'))
+        put(back, [(x, y) for y in range(36, 50, 4) for x in (12, 20, 27, 35) if back[y][x] == 'h'], 'H')
+    shine(front)
+    # a few strands at the fringe
+    for x in range(10, 38, 5):
+        for y in range(8, 16):
+            if front[y][x] == 'h' and front[y + 1][x] in ('h', 'H'):
+                front[y][x] = 'H'
+                break
     return back, front
 
 # ---------------------------------------------------------------- ACCESSORIES
@@ -490,42 +456,32 @@ def hair(style, gender):
 def accessory(kind):
     g = empty()
     if kind == 'glasses':
-        for x0 in (8, 18):
-            put(g, [(x, 12) for x in range(x0, x0 + 5)] + [(x, 16) for x in range(x0, x0 + 5)] +
-                [(x0, y) for y in range(12, 17)] + [(x0 + 4, y) for y in range(12, 17)], 'O')
-            put(g, [(x0 + 3, 13)], 'i')
-        put(g, [(13, 13), (14, 13), (17, 13), (18, 13), (15, 13), (16, 13)], 'O')
-        put(g, [(6, 13), (7, 13), (24, 13), (25, 13)], 'O')
+        for x0 in (12, 28):
+            put(g, [(x, 18) for x in range(x0 + 1, x0 + 7)] + [(x, 25) for x in range(x0 + 1, x0 + 7)] +
+                [(x0, y) for y in range(19, 25)] + [(x0 + 7, y) for y in range(19, 25)], 'O')
+            put(g, [(x0 + 5, 19), (x0 + 6, 20)], 'i')
+        put(g, [(x, 20) for x in range(20, 28)] + [(9, 20), (10, 20), (11, 20), (36, 20), (37, 20), (38, 20)], 'O')
     elif kind == 'bow':
-        b = outline(grid(['.....................rrr.rrr....', '....................rrrrrrrrr...',
-                          '....................rrrrrrrrr...', '.....................rrr.rrr....'], start=2))
-        put(b, [(24, 3), (24, 4)], 'y')
+        b = outline(shape(lambda x, y: inell(x, y, 31, 5, 4.2, 3.2) or inell(x, y, 39, 5, 4.2, 3.2), 'r'))
+        put(b, [(35, 4), (35, 5), (35, 6)], 'y'); put(b, [(34, 5), (36, 5)], 'Y')
         g = b
     elif kind == 'cap':
-        cap = outline(grid([
-            '..........cccccc', '........cccccccc', '......cccccccccc', '.....ccccccccccc',
-            '.....ccccccccccc', '....cccccccccccc'], start=1))
-        brim = outline(grid(['...ccccccccccccc'] * 2, start=7), light=False)
-        g = stack(cap, brim)
-        put(g, [(15, 1), (16, 1)], 'w')
-        put(g, [(18, 3), (19, 3), (18, 4), (19, 4)], 'w')
+        dome = outline(shape(lambda x, y: inell(x, y, CX, 10.5, 16.8, 9.5) and y <= 10, 'c'))
+        brim = outline(shape(lambda x, y: 10 <= y <= 12 and 5 <= x <= 42, 'c'), light=False)
+        g = stack(dome, brim)
+        put(g, [(23, 1), (24, 1)], 'w')
+        stamp(g, 21, 4, ['.ww.', 'wwww', '.ww.'])
     elif kind == 'headphones':
-        band = grid(['.........ooooooo'], start=3)
-        put(g, [(x, y) for y in (2,) for x in range(9, 23)], 'O')
-        put(g, [(7, 3), (8, 3), (23, 3), (24, 3), (5, 4), (6, 4), (25, 4), (26, 4), (4, 5), (27, 5)], 'O')
-        put(g, [(4, y) for y in range(6, 11)] + [(27, y) for y in range(6, 11)], 'O')
-        cups = outline(grid(['.vvvv...........'] * 6, start=10))
-        g = stack(g, cups)
+        band = shape(lambda x, y: y <= 14 and inell(x, y, CX, 17, 18.5, 16.5) and not inell(x, y, CX, 17, 16.5, 14.5), 'v')
+        cups = shape(sym(lambda x, y: inell(x, y, 7.8, 20, 3.2, 5.2)), 'v')
+        g = stack(outline(band), outline(cups))
     elif kind == 'flower':
-        f = grid(['.....................u...', '....................uuu..', '.....................u...'], start=4) if False else empty()
-        put(f, [(23, 3), (22, 4), (24, 4), (23, 5), (21, 3), (25, 3), (21, 5), (25, 5)], 'O')
-        put(f, [(22, 3), (24, 3), (22, 5), (24, 5), (21, 4), (25, 4), (23, 2), (23, 6)], 'u')
-        put(f, [(23, 4)], 'y')
-        put(f, [(20, 4), (26, 4), (23, 1), (23, 7)], 'O')
-        put(f, [(22, 4), (24, 4), (23, 3), (23, 5)], 'U')
-        put(f, [(23, 4)], 'y')
+        f = shape(lambda x, y: any(inell(x, y, 34 + dx, 6 + dy, 1.9, 1.9) for dx, dy in ((0, -2.5), (2.5, 0), (0, 2.5), (-2.5, 0))), 'u')
+        f = outline(f)
+        put(f, [(34, 6), (33, 6), (34, 5), (33, 5)], 'y')
         g = f
     return g
+
 
 # ---------------------------------------------------------------- EMOTE ICONS (12x12)
 ICONS = {
@@ -543,130 +499,110 @@ ICONS = {
             '.OuuuuuuuUO.', '..OuuuuuUO..', '...OuuuUO...', '....OuUO....', '.....OO.....', '............'],
 }
 
-# ---------------------------------------------------------------- CAT (32x28)
-def cat_grid(half_rows, start=0):
-    """Cat half-grids are 10 wide, mirrored to 20, then padded to 32."""
-    rows = [(r + r[::-1]).ljust(CW, '.') for r in half_rows]
-    return grid(rows, start=start, width=CW, height=CH)
+# ---------------------------------------------------------------- CAT (40 x 34)
+KX = (CW - 1) / 2     # 19.5
 
 
-CAT_HEAD = [
-    '...f......',  # 1
-    '..fgf.....',
-    '..fggf....',
-    '..fgggffff',
-    '.fffffffff',  # 5
-    '.fffffffff',
-    '.fffffffff',
-    'ffffffffff',  # 8
-    '.fffffffff',
-    '..ffffffzz',  # 10
-    '...ffffzzz',
-]
-CAT_BODY = [
-    '....ffzzzz',  # 11
-    '...fffzzzz',
-    '..ffffzzzz',
-    '..ffffzzzz',
-    '.fffffzzzz',  # 15
-    '.fffffzzzz',
-    '.ffffffzzz',
-    '.fffffffff',
-    '.fffffffff',
-    '.fffffffff',  # 20
-    '..ffffffff',
-]
-CAT_PAWS = ['...zzz....', '..zzzzz...', '..zzzzz...']
-CAT_TAILS = {
-    0: [(10, '......................ffff'), (11, '.....................ffff'), (12, '.....................fff'),
-        (13, '....................ffff'), (14, '...................ffff'), (15, '..................ffff'),
-        (16, '.................ffff'), (17, '................ffff')],
-    1: [(11, '........................fff'), (12, '.......................ffff'), (13, '.......................fff'),
-        (14, '......................ffff'), (15, '.....................ffff'), (16, '...................fffff'),
-        (17, '.................fffff')],
-    2: [(15, '........................fff'), (16, '.......................ffff'), (17, '......................ffff'),
-        (18, '....................fffff'), (19, '..................fffff'), (20, '................fffff')],
-}
+def cshape(test, ch):
+    return shape(test, ch, CW, CH)
 
 
-def cat_base(tail):
-    body = outline(cat_grid(CAT_BODY, start=11))
-    head = outline(cat_grid(CAT_HEAD, start=1))
-    paws = outline(cat_grid(CAT_PAWS, start=21), light=False)
-    t = empty(CW, CH)
-    for y, row in CAT_TAILS[tail]:
-        for x, ch in enumerate(row):
-            if ch != '.':
-                t[y][x] = ch
-    t = outline(t)
-    tip = [(x, y) for y, row in CAT_TAILS[tail][:2] for x, ch in enumerate(row) if ch == 'f']
-    g = stack(t, body, head, paws)
-    put(g, [p for p in tip if t[p[1]][p[0]] != 'O'], 'd')
-    # tabby stripes
-    put(g, [(9, 4), (10, 4), (7, 5), (12, 5), (9, 6), (10, 6)], 'd')
-    put(g, [(2, 14), (3, 14), (2, 16), (3, 16), (17, 14), (16, 14), (17, 16), (16, 16)], 'd')
+def ear_test(dx=0, dy=0):
+    def t(x, y):
+        x, y = x - dx, y - dy
+        if not (1 <= y <= 9):
+            return False
+        lx = (x >= 10 - (y - 1) * 0.25) and (x <= 11 + (y - 1) * 0.95)
+        rx = (x <= CW - 1 - 10 + (y - 1) * 0.25) and (x >= CW - 1 - 11 - (y - 1) * 0.95)
+        return lx or rx
+    return t
+
+
+def cat_head(dx=0, dy=0):
+    head = outline(cshape(lambda x, y: inell(x - dx, y - dy, KX, 13, 10.6, 8.6) or inell(x - dx, y - dy, KX, 15.5, 12.2, 5.2), 'f'))
+    ears = outline(cshape(ear_test(dx, dy), 'f'))
+    inner = cshape(lambda x, y: ear_test(dx, dy)(x, y) and 3 <= y - dy <= 8 and abs(x - dx - KX) > 6.5 and abs(x - dx - KX) < 8.6, 't')
+    g = stack(ears, inner, head)
+    muzzle = cshape(lambda x, y: inell(x - dx, y - dy, KX, 17, 4.2, 2.6), 'z')
+    for y in range(CH):
+        for x in range(CW):
+            if muzzle[y][x] != '.' and g[y][x] not in ('O', '.'):
+                g[y][x] = 'z'
+    put(g, [(19 + dx, 6 + dy), (20 + dx, 6 + dy), (17 + dx, 7 + dy), (22 + dx, 7 + dy), (19 + dx, 8 + dy), (20 + dx, 8 + dy)], 'd')
     return g
 
 
-def cat_face(g, kind):
-    if kind == 'open':
-        put(g, [(5, 6), (6, 6), (5, 7), (6, 7), (13, 6), (14, 6), (13, 7), (14, 7)], 'e')
-        put(g, [(5, 6), (13, 6)], 'i')
-    elif kind == 'blink':
-        put(g, [(4, 7), (5, 7), (6, 7), (13, 7), (14, 7), (15, 7)], 'e')
-    elif kind == 'happy':
-        put(g, [(4, 7), (5, 6), (6, 6), (7, 7), (12, 7), (13, 6), (14, 6), (15, 7)], 'e')
-    put(g, [(9, 8), (10, 8)], 'r')                                    # nose
-    put(g, [(8, 9), (11, 9), (9, 10), (10, 10)], 'e')                 # mouth
+def cat_face(g, kind, dx=0, dy=0):
+    ex = [(12, 24)]
+    for x0 in (12 + dx, 24 + dx):
+        y0 = 11 + dy
+        if kind == 'open':
+            stamp(g, x0, y0, ['.ee.', 'eiee', 'eeee', '.ee.'])
+        elif kind == 'blink' or kind == 'sleep':
+            put(g, [(x0, y0 + 2), (x0 + 1, y0 + 3), (x0 + 2, y0 + 3), (x0 + 3, y0 + 2)] if kind == 'sleep' else [(x0, y0 + 2), (x0 + 1, y0 + 2), (x0 + 2, y0 + 2), (x0 + 3, y0 + 2)], 'e')
+        elif kind == 'happy':
+            put(g, [(x0, y0 + 2), (x0 + 1, y0 + 1), (x0 + 2, y0 + 1), (x0 + 3, y0 + 2)], 'e')
+    put(g, [(19 + dx, 15 + dy), (20 + dx, 15 + dy)], 'r')
+    put(g, [(18 + dx, 16 + dy), (21 + dx, 16 + dy), (19 + dx, 17 + dy), (20 + dx, 17 + dy)], 'e')
     if kind == 'happy':
-        put(g, [(9, 11), (10, 11)], 't')                              # little open mouth
-    put(g, [(3, 8), (4, 8), (15, 8), (16, 8)], 'b')                   # blush
+        put(g, [(19 + dx, 18 + dy), (20 + dx, 18 + dy)], 't')
+    put(g, [(10 + dx, 15 + dy), (11 + dx, 15 + dy), (28 + dx, 15 + dy), (29 + dx, 15 + dy)], 'b')
     return g
 
 
-LOAF_BODY = [
-    '.........fffffffffffff',          # 12
-    '.......fffffffffffffffff',
-    '......ffffffffffffffffffff',
-    '.....ffffffffffffffffffffff',
-    '.....fffffffffffffffffffffff',    # 16
-    '.....fffffffffffffffffffffff',
-    '.....fffffffffffffffffffffff',
-    '.....fffffffffffffffffffffff',
-    '.....fffffffffffffffffffffff',    # 20
-    '.....ffffffffffffffffffffff',
-    '......ffffffffffffffffffff',
-    '.......ffffffffffffffffff',       # 23
-]
-LOAF_TAIL = ['..............................', '...........fffffffffffffffff', '..........fffffffffffffffff']
+def tail_chain(points, r=2.3):
+    t = cshape(lambda x, y: any(inell(x, y, px, py, r, r) for px, py in points), 'f')
+    t = outline(t)
+    for px, py in points[-2:]:
+        for y in range(CH):
+            for x in range(CW):
+                if t[y][x] not in ('O', '.') and inell(x, y, px, py, r, r):
+                    t[y][x] = 'd'
+    return t
+
+
+def bez(p0, p1, p2, n=10):
+    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+             (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in [k / n for k in range(n + 1)]]
+
+
+TAILS = {0: bez((27, 29), (37, 28), (35, 15)), 1: bez((27, 29), (39, 26), (38, 17)), 2: bez((27, 29), (38, 31), (37, 23))}
+
+
+def cat_sit(tail, kind):
+    body = outline(cshape(lambda x, y: inell(x, y, KX, 24.5, 9.6, 8.2), 'f'))
+    chest = cshape(lambda x, y: inell(x, y, KX, 25, 4.6, 6.2), 'z')
+    for y in range(CH):
+        for x in range(CW):
+            if chest[y][x] != '.' and body[y][x] not in ('O', '.'):
+                body[y][x] = 'z'
+    put(body, [(11, 22), (12, 22), (11, 25), (12, 25), (28, 22), (27, 22), (28, 25), (27, 25)], 'd')
+    paws = outline(cshape(lambda x, y: inell(x, y, 15.5, 31.5, 2.9, 1.9) or inell(x, y, 23.5, 31.5, 2.9, 1.9), 'z'), light=False)
+    g = stack(tail_chain(TAILS[tail]), body, cat_head(), paws)
+    return cat_face(g, kind)
 
 
 def cat_loaf(breath):
-    oy = 7
-    rows = [r.ljust(CW, '.') for r in LOAF_BODY]
-    body = outline(grid(rows, start=12 - (1 if breath else 0), width=CW, height=CH))
-    put(body, [(14, 15 - breath), (15, 14 - breath), (19, 15 - breath), (20, 14 - breath), (24, 16 - breath), (25, 15 - breath)], 'd')
-    head = outline(cat_grid(CAT_HEAD, start=1 + oy))
-    paws = outline(cat_grid(['...zzz....', '..zzzzz...'], start=19), light=False)
-    g = stack(body, head, paws)
-    put(g, [(9, 4 + oy), (10, 4 + oy), (7, 5 + oy), (12, 5 + oy), (9, 6 + oy), (10, 6 + oy)], 'd')
-    put(g, [(4, 7 + oy), (5, 7 + oy), (6, 7 + oy), (13, 7 + oy), (14, 7 + oy), (15, 7 + oy)], 'e')   # sleepy eyes
-    put(g, [(9, 8 + oy), (10, 8 + oy)], 'r')
-    put(g, [(9, 9 + oy), (10, 9 + oy)], 'e')
-    put(g, [(3, 8 + oy), (4, 8 + oy), (15, 8 + oy), (16, 8 + oy)], 'b')
-    return g
+    b = 1 if breath else 0
+    body = outline(cshape(lambda x, y: inell(x, y, 23, 26 - b * 0.5, 14.5, 6.6 + b * 0.5), 'f'))
+    put(body, [(22, 20), (23, 21), (28, 20), (29, 21), (33, 22), (34, 23)], 'd')
+    tail = tail_chain(bez((36, 29), (30, 34), (16, 32)), r=2.0)
+    head = cat_head(-8, 7)
+    g = stack(body, head, tail)
+    return cat_face(g, 'sleep', -8, 7)
 
 
 def cat_frames():
     frames = {}
     for t in (0, 1, 2):
-        frames[f'sit{t}'] = cat_face(cat_base(t), 'open')
-    frames['blink'] = cat_face(cat_base(0), 'blink')
-    frames['happy'] = cat_face(cat_base(1), 'happy')
-    frames['happy2'] = cat_face(cat_base(2), 'happy')
+        frames[f'sit{t}'] = cat_sit(t, 'open')
+    frames['blink'] = cat_sit(0, 'blink')
+    frames['happy'] = cat_sit(1, 'happy')
+    frames['happy2'] = cat_sit(2, 'happy')
     frames['loaf0'] = cat_loaf(False)
     frames['loaf1'] = cat_loaf(True)
     return frames
+
 
 # ---------------------------------------------------------------- SHEET WRITER
 
@@ -687,10 +623,11 @@ def to_image(cells, cw, ch, cols):
 def walk_pose(g, side):
     """Lift one foot by a pixel (side 0 = left leg, 1 = right leg) for walk frames."""
     out = [row[:] for row in g]
-    cols = range(0, 16) if side == 0 else range(16, 32)
+    cols = range(0, W // 2) if side == 0 else range(W // 2, W)
     for x in cols:
-        for y in range(37, H - 1):
-            out[y][x] = g[y + 1][x]
+        for y in range(52, H - 2):
+            out[y][x] = g[y + 2][x]
+        out[H - 2][x] = '.'
         out[H - 1][x] = '.'
     return out
 
@@ -733,8 +670,8 @@ def main():
     cf = cat_frames()
     to_image(list(cf.values()), CW, CH, len(cf)).save(os.path.join(OUT, 'cat.png'))
 
-    meta = {'cell': [W, H], 'cols': cols, 'layers': index,
-            'cat': {'cell': [CW, CH], 'frames': list(cf.keys())},
+    meta = {'cell': [W, H], 'cols': cols, 'layers': index, 'split': 31, 'feet': 62, 'head': [6, 0, 36, 33],
+            'cat': {'cell': [CW, CH], 'frames': list(cf.keys()), 'feet': 33, 'loafBottom': 32},
             'icons': {'cell': [12, 12], 'order': EXPRESSIONS},
             'keys': {k: PAL[k] for k in 'sSqbhHlcCLfFgdzZ'}}
     with open(os.path.join(OUT, 'sprites.json'), 'w') as fh:

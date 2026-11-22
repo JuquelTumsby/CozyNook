@@ -1,7 +1,7 @@
 {
  "cell": [
-  32,
-  44
+  48,
+  64
  ],
  "cols": 8,
  "layers": {
@@ -56,10 +56,18 @@
   "acc-headphones": 48,
   "acc-flower": 49
  },
+ "split": 31,
+ "feet": 62,
+ "head": [
+  6,
+  0,
+  36,
+  33
+ ],
  "cat": {
   "cell": [
-   32,
-   28
+   40,
+   34
   ],
   "frames": [
    "sit0",
@@ -70,7 +78,9 @@
    "happy2",
    "loaf0",
    "loaf1"
-  ]
+  ],
+  "feet": 33,
+  "loafBottom": 32
  },
  "icons": {
   "cell": [

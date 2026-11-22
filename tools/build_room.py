@@ -117,7 +117,8 @@ def hexc(h):
 # top, a deep wooden floor below, and short side walls for depth.
 # The room starts mostly empty on purpose - players fill it from the shop.
 WALL_Y = 72          # where the back wall meets the floor
-SIDE = 18            # width of each side wall at the top
+SIDE = 20            # width of the left side wall
+SIDE_R = 46          # the right wall is wider: it has the door
 
 RAMP.update({
     'rose':  ('#7a4a6a', '#c98fae', '#e7b3c4', '#f4cfdb'),
@@ -137,8 +138,8 @@ def side_bottom(x):
     """y of the floor line on the side walls (it slopes towards the viewer)."""
     if x < SIDE:
         return WALL_Y + int((SIDE - x) * 1.6)
-    if x >= RW - SIDE:
-        return WALL_Y + int((x - (RW - SIDE - 1)) * 1.6)
+    if x >= RW - SIDE_R:
+        return WALL_Y + int((x - (RW - SIDE_R - 1)) * 1.25)
     return WALL_Y
 
 
@@ -163,7 +164,7 @@ def walls(c):
 
 
 def side_walls(c):
-    for x in list(range(SIDE)) + list(range(RW - SIDE, RW)):
+    for x in list(range(SIDE)) + list(range(RW - SIDE_R, RW)):
         bottom = side_bottom(x)
         left = x < SIDE
         base = '#c993ab' if left else '#d8a2b9'
@@ -172,7 +173,7 @@ def side_walls(c):
         c.px(x, bottom - 5, O)
         c.px(x, 46 + (bottom - WALL_Y), RAMP['mauve'][1])
     # corner lines
-    c.vline(SIDE, 0, WALL_Y, O); c.vline(RW - SIDE - 1, 0, WALL_Y, O)
+    c.vline(SIDE, 0, WALL_Y, O); c.vline(RW - SIDE_R - 1, 0, WALL_Y, O)
 
 
 def floor(c):
@@ -260,40 +261,65 @@ def window_extras(c):
 
 
 def door(c):
-    x, y, w = 266, 18, 28
-    c.box(x - 3, y - 3, w + 6, WALL_Y - y + 3, 'cream')
-    c.box(x, y, w, WALL_Y - y, 'oak')
-    for py, ph in ((y + 4, 18), (y + 26, 22)):
-        c.frame(x + 4, py, w - 8, ph, RAMP['oak'][1]); c.hline(x + 5, py + 1, w - 10, RAMP['oak'][3])
-    c.ellipse(x + w - 6, y + 28, 1, 1, '#f7c948', O)
+    """Door on the right-hand wall, drawn in perspective (it slants like the wall)."""
+    x0, x1 = RW - SIDE_R + 8, RW - SIDE_R + 30
+    for x in range(x0 - 2, x1 + 3):
+        bottom = side_bottom(x) - 4
+        top = bottom - 52 - int((x - x0) * 1.55)
+        frame = x < x0 or x > x1
+        for y in range(top - (2 if frame else 0), bottom):
+            if frame:
+                col = '#fbf2ff' if x in (x0 - 2, x1 + 2) else '#e6d6ee'
+            else:
+                t = x - x0
+                col = RAMP['oak'][2] if 3 < t < 19 else RAMP['oak'][1]
+                rel = (y - top) / max(1, bottom - top)
+                if t in (5, 17) and (0.08 < rel < 0.45 or 0.52 < rel < 0.92):
+                    col = RAMP['oak'][1]
+                if t in (6,) and (0.08 < rel < 0.45 or 0.52 < rel < 0.92):
+                    col = RAMP['oak'][3]
+            c.px(x, y, col)
+        c.px(x, top - (3 if frame else 1), O)
+        c.px(x, bottom, O)
+    for xx in (x0 - 3, x1 + 3):
+        b = side_bottom(xx) - 4
+        for y in range(b - 54 - int((xx - x0) * 1.55), b):
+            c.px(xx, y, O)
+    kx = x0 + 3
+    ky = side_bottom(kx) - 30
+    c.ellipse(kx, ky, 1, 1, '#f7c948', O)
 
 
-BED = {'x': 22, 'y': 38, 'w': 80, 'h': 86}
-BLANKET = {'x': 25, 'y': 80, 'w': 74, 'h': 38, 'top': 26}
+BED = {'x': 22, 'y': 50, 'w': 120, 'h': 68}
+BLANKET = {'x': 58, 'y': 74, 'w': 76, 'h': 37, 'top': 22, 'fold': 'left'}
 
 
 def bed(c):
-    x = BED['x']
-    # headboard against the wall
-    c.box(x, 38, 80, 30, 'oak')
-    c.rect(x + 2, 36, 76, 4, RAMP['oak'][3]); c.frame(x + 1, 35, 78, 5, O)
-    for k in range(4):
-        c.frame(x + 8 + k * 17, 44, 13, 18, RAMP['oak'][1]); c.hline(x + 9 + k * 17, 45, 11, RAMP['oak'][3])
-    # mattress top (seen from above)
-    c.rect(x + 3, 64, 74, 42, RAMP['sheet'][2]); c.frame(x + 2, 63, 76, 44, O)
-    c.hline(x + 3, 64, 74, RAMP['sheet'][3])
-    # pillows
-    for px_ in (x + 8, x + 42):
-        c.ellipse(px_ + 14, 71, 14, 5, '#ffffff', O)
-        c.hline(px_ + 4, 74, 18, '#e9def3'); c.px(px_ + 6, 69, '#ffffff')
-    # frame front + legs
-    c.box(x + 2, 106, 76, 14, 'oak')
-    c.rect(x + 4, 120, 5, 4, RAMP['oak'][0]); c.rect(x + 71, 120, 5, 4, RAMP['oak'][0])
+    """The bed sits sideways along the back wall, pillow end on the left."""
+    # headboard (left end)
+    c.box(24, 52, 12, 64, 'oak')
+    c.rect(23, 50, 14, 4, RAMP['oak'][3]); c.frame(22, 49, 16, 5, O)
+    c.frame(27, 60, 6, 44, RAMP['oak'][1]); c.vline(28, 61, 42, RAMP['oak'][3])
+    # mattress top
+    c.rect(36, 74, 98, 22, RAMP['sheet'][2]); c.frame(35, 73, 100, 24, O)
+    c.hline(36, 74, 98, RAMP['sheet'][3])
+    # front of the mattress + frame
+    c.rect(36, 96, 98, 10, RAMP['sheet'][1]); c.frame(35, 96, 100, 11, O)
+    c.box(35, 106, 102, 9, 'oak')
+    # footboard (right end, lower)
+    c.box(133, 80, 8, 36, 'oak')
+    c.rect(132, 78, 10, 3, RAMP['oak'][3]); c.frame(131, 77, 12, 4, O)
+    # legs
+    c.rect(37, 115, 5, 4, RAMP['oak'][0]); c.rect(128, 115, 5, 4, RAMP['oak'][0])
+    # pillow at the head end
+    c.ellipse(47, 83, 10, 7, '#ffffff', O)
+    c.hline(40, 87, 14, '#e9def3'); c.px(42, 79, '#ffffff'); c.px(41, 80, '#ffffff')
+    c.hline(43, 85, 6, '#e9def3')
 
 
-DESK = {'x': 190, 'y': 48, 'w': 70}
-LAMP = {'x': 242, 'y': 26, 'w': 16, 'h': 26}
-COMPUTER = {'x': 202, 'y': 22, 'w': 34, 'h': 30}
+DESK = {'x': 196, 'y': 48, 'w': 74}
+LAMP = {'x': 250, 'y': 26, 'w': 16, 'h': 26}
+COMPUTER = {'x': 208, 'y': 22, 'w': 34, 'h': 30}
 
 
 def desk(c):
@@ -339,7 +365,7 @@ def desk_lamp(c):
 
 
 def chair(c):
-    x, y = 212, 76
+    x, y = 220, 76
     c.rect(x + 3, y + 24, 3, 10, RAMP['plum'][1]); c.rect(x + 18, y + 24, 3, 10, RAMP['plum'][1])
     c.rect(x + 10, y + 26, 4, 8, RAMP['plum'][2])
     c.box(x + 1, y + 20, 22, 6, 'chair')                # seat
