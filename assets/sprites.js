@@ -202,7 +202,7 @@
     var dt = walker.last ? Math.min(0.25, (now - walker.last) / 1000) : 0;
     walker.last = now;
     if (!walker.placed) { placeWalker(); walker.placed = true; }
-    if (reduceMotion || document.querySelector('.room-decor-item.is-dragging')) return false;
+    if (reduceMotion || document.querySelector('.room-decor-item.is-dragging, .room.is-moving-furniture')) return false;
     var dx = walker.target - walker.x, dy = walker.targetY - walker.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 0.5) {
@@ -408,7 +408,7 @@
   var ROOM = window.COZY_ROOM_META;
   var roomImgs = {}, roomLoaded = 0;
   if (ROOM) {
-    ['room-floors', 'room-walls', 'room-objects', 'window-night'].forEach(function (name) {
+    ['room-floors', 'room-walls', 'room-pieces'].forEach(function (name) {
       var img = new Image();
       img.onload = function () {
         roomLoaded++;
@@ -419,17 +419,48 @@
       roomImgs[name] = img;
     });
   }
-  var ROOM_PARTS = 4;
+  var ROOM_PARTS = 3;
   var roomLook = { blanket: '#d5b6d9', pattern: 'gingham', wall: 'rose', floor: 'oak' };
 
+  // ---- movable furniture -------------------------------------------------
+  // layout = { bed: [dx, dy], desk: [dx, dy], ... } offsets from the default spot.
+  var roomLayout = {};
+  var MOVABLE = { window: 'wall', desk: 'floor', chair: 'floor', bed: 'floor' };
+  var FLOOR_DEPTH = { bed: 47, desk: 27, chair: 12 };   // how far from the wall a piece's feet must stay
+  function offOf(name, layout) { var o = (layout || roomLayout)[name]; return o ? o : [0, 0]; }
+  function piecePos(name, layout) {
+    var P = ROOM.pieces[name], o = offOf(name, layout);
+    return { x: P.x + o[0], y: P.y + o[1], w: P.w, h: P.h };
+  }
+  function drawPiece(ctx, name, layout, art) {
+    var P = ROOM.pieces[art || name], q = piecePos(name, layout);
+    ctx.drawImage(roomImgs['room-pieces'], P.sx, 0, P.w, P.h, q.x, q.y, P.w, P.h);
+  }
+  function floorOrder(layout) {
+    return ['desk', 'chair', 'bed'].sort(function (a, b) {
+      var pa = piecePos(a, layout), pb = piecePos(b, layout);
+      return (pa.y + pa.h) - (pb.y + pb.h);
+    });
+  }
+
   // Draws floor + wallpaper + furniture for the given themes (shop previews use it too).
-  function drawRoomBase(ctx, wall, floor) {
+  function drawRoomBase(ctx, wall, floor, opts) {
+    opts = opts || {};
+    var layout = opts.layout || {};
     var RW = ROOM.size[0], RH = ROOM.size[1];
     var fi = Math.max(0, (ROOM.floors || []).indexOf(floor));
     var wi = Math.max(0, (ROOM.walls || []).indexOf(wall));
     ctx.drawImage(roomImgs['room-floors'], 0, fi * RH, RW, RH, 0, 0, RW, RH);
     ctx.drawImage(roomImgs['room-walls'], 0, wi * RH, RW, RH, 0, 0, RW, RH);
-    ctx.drawImage(roomImgs['room-objects'], 0, 0);
+    drawPiece(ctx, 'window', layout, opts.night ? 'window-night' : 'window');
+    drawPiece(ctx, 'door', layout);
+    floorOrder(layout).forEach(function (name) {
+      drawPiece(ctx, name, layout);
+      if (name === 'bed') {
+        var o = offOf('bed', layout);
+        ctx.save(); ctx.translate(o[0], o[1]); drawBlanket(ctx); ctx.restore();
+      }
+    });
   }
 
   var roomWaiters = [];
@@ -490,7 +521,10 @@
 
   // Night: purple dusk tint, warm lamp light and a patch of moonlight.
   function drawNight(ctx, lampOn) {
-    var W = ROOM.size[0], H = ROOM.size[1], win = ROOM.window, g = ROOM.lampGlow;
+    var W = ROOM.size[0], H = ROOM.size[1];
+    var wo = offOf('window'), dO = offOf('desk');
+    var win = { x: ROOM.window.x + wo[0], y: ROOM.window.y + wo[1], w: ROOM.window.w, h: ROOM.window.h };
+    var g = { x: ROOM.lampGlow.x + dO[0], y: ROOM.lampGlow.y + dO[1] };
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillStyle = '#8073b8';
@@ -540,11 +574,123 @@
     var ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, c.width, c.height);
-    drawRoomBase(ctx, roomLook.wall, roomLook.floor);
-    if (night) ctx.drawImage(roomImgs['window-night'], 0, 0);
-    drawBlanket(ctx);
+    drawRoomBase(ctx, roomLook.wall, roomLook.floor, { night: night, layout: roomLayout });
     if (night) drawNight(ctx, lampOn);
-    drawLamp(ctx, lampOn, night);
+    var d = offOf('desk');
+    ctx.save(); ctx.translate(d[0], d[1]); drawLamp(ctx, lampOn, night); ctx.restore();
+    placeHotspots();
+  }
+
+
+  // Clickable spots follow their furniture.
+  function placeHotspots() {
+    var RW = ROOM.size[0], RH = ROOM.size[1];
+    var set = function (id, x, y, w, h) {
+      var el = document.getElementById(id); if (!el) return;
+      el.style.left = (x / RW * 100) + '%'; el.style.top = (y / RH * 100) + '%';
+      el.style.width = (w / RW * 100) + '%'; el.style.height = (h / RH * 100) + '%';
+    };
+    var b = piecePos('bed'), d = offOf('desk');
+    set('roomBed', b.x, b.y, b.w, b.h);
+    set('roomComputer', ROOM.computer.x + d[0], ROOM.computer.y + d[1], ROOM.computer.w, ROOM.computer.h);
+    set('roomLamp', ROOM.lamp.x + d[0] - 2, ROOM.lamp.y + d[1], ROOM.lamp.w + 4, ROOM.lamp.h + 2);
+  }
+
+  var pieceAlpha = null;
+  function alphaAt(name, px, py) {
+    var P = ROOM.pieces[name];
+    if (pieceAlpha === null) {
+      try {
+        var img = roomImgs['room-pieces'], t = document.createElement('canvas');
+        t.width = img.width; t.height = img.height;
+        var tc = t.getContext('2d'); tc.drawImage(img, 0, 0);
+        pieceAlpha = { w: img.width, d: tc.getImageData(0, 0, img.width, img.height).data };
+      } catch (e) { pieceAlpha = false; }    // file:// pages: fall back to the box
+    }
+    if (!pieceAlpha) return true;
+    return pieceAlpha.d[((py) * pieceAlpha.w + P.sx + px) * 4 + 3] > 0;
+  }
+  function pieceAt(x, y) {
+    var order = ['window'].concat(floorOrder()).reverse();   // front-most first
+    for (var i = 0; i < order.length; i++) {
+      var q = piecePos(order[i]);
+      var lx = Math.floor(x - q.x), ly = Math.floor(y - q.y);
+      if (lx >= 0 && ly >= 0 && lx < q.w && ly < q.h && alphaAt(order[i], lx, ly)) return order[i];
+    }
+    return null;
+  }
+  function clampOffset(name, dx, dy) {
+    var P = ROOM.pieces[name], RW = ROOM.size[0], RH = ROOM.size[1];
+    var side = 20, sideR = 46;
+    if (MOVABLE[name] === 'wall') {
+      return [Math.round(Math.max(side + 2 - P.x, Math.min(RW - sideR - 3 - P.w - P.x, dx))), 0];
+    }
+    var minDy = (ROOM.wallY + FLOOR_DEPTH[name]) - (P.y + P.h);
+    var maxDy = RH - 1 - (P.y + P.h);
+    return [Math.round(Math.max(-P.x, Math.min(RW - P.w - P.x, dx))), Math.round(Math.max(minDy, Math.min(maxDy, dy)))];
+  }
+
+  function initFurnitureDrag(room, canvas) {
+    var drag = null, swallowClick = false;
+    var toRoom = function (e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) / r.width * ROOM.size[0], y: (e.clientY - r.top) / r.height * ROOM.size[1], scale: r.width / ROOM.size[0] };
+    };
+    var ignore = function (t) { return t.closest('.room-decor-item, .cat-sprite, .character-sprite'); };
+    var startDrag = function () {
+      drag.active = true;
+      room.classList.add('is-moving-furniture');
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
+    };
+    room.addEventListener('pointerdown', function (e) {
+      if (e.button > 0 || ignore(e.target) || roomLoaded < ROOM_PARTS) return;
+      var p = toRoom(e), name = pieceAt(p.x, p.y);
+      if (!name) return;
+      var o = offOf(name);
+      drag = { name: name, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: o[0], oy: o[1], scale: p.scale, active: false, touch: e.pointerType !== 'mouse' };
+      if (drag.touch) {
+        // on phones: press and hold for a moment, so normal scrolling still works
+        drag.timer = setTimeout(function () { if (drag) startDrag(); }, 280);
+      }
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) {
+        if (!drag && e.pointerType === 'mouse' && room.contains(e.target) && !ignore(e.target)) {
+          var q = toRoom(e);
+          room.classList.toggle('over-furniture', roomLoaded >= ROOM_PARTS && !!pieceAt(q.x, q.y));
+        }
+        return;
+      }
+      var mx = e.clientX - drag.sx, my = e.clientY - drag.sy;
+      if (!drag.active) {
+        if (Math.abs(mx) + Math.abs(my) < 6) return;
+        if (drag.touch) { clearTimeout(drag.timer); drag = null; return; }   // it was a scroll
+        startDrag();
+      }
+      roomLayout[drag.name] = clampOffset(drag.name, drag.ox + mx / drag.scale, drag.oy + my / drag.scale);
+      renderRoom();
+    });
+    // while dragging on a phone, stop the page from scrolling
+    room.addEventListener('touchmove', function (e) { if (drag && drag.active) e.preventDefault(); }, { passive: false });
+    var finish = function (e) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      clearTimeout(drag.timer);
+      if (drag.active) {
+        swallowClick = true;
+        setTimeout(function () { swallowClick = false; }, 350);
+        room.classList.remove('is-moving-furniture');
+        var copy = {};
+        Object.keys(roomLayout).forEach(function (k) { copy[k] = roomLayout[k].slice(); });
+        document.dispatchEvent(new CustomEvent('cozy:layout', { detail: { layout: copy, moved: drag.name } }));
+      }
+      drag = null;
+    };
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', function (e) {
+      if (drag && drag.active) finish(e); else if (drag) { clearTimeout(drag.timer); drag = null; }
+    });
+    room.addEventListener('click', function (e) { if (swallowClick) { e.stopPropagation(); e.preventDefault(); swallowClick = false; } }, true);
+    room.addEventListener('contextmenu', function (e) { if (drag) e.preventDefault(); });
   }
 
   function watchRoom() {
@@ -553,6 +699,7 @@
     if (!room || room._cozyWatched) return;
     room._cozyWatched = true;
     new MutationObserver(renderRoom).observe(room, { attributes: true, attributeFilter: ['class'] });
+    initFurnitureDrag(room, c);
     var lamp = document.getElementById('roomLamp');
     var toggle = function () { var b = document.getElementById('lampToggle'); if (b) b.click(); };
     if (lamp) {
@@ -614,6 +761,11 @@
     cat.coat = st.catCoat || 'ginger';
     roomLook = { blanket: st.blanket, pattern: st.blanketPattern || 'gingham',
                  wall: st.wallpaper || 'rose', floor: st.floorTheme || 'oak' };
+    var lay = st.roomLayout && typeof st.roomLayout === 'object' ? st.roomLayout : {};
+    roomLayout = {};
+    Object.keys(lay).forEach(function (k) {
+      if (MOVABLE[k] && Array.isArray(lay[k]) && ROOM && ROOM.pieces) roomLayout[k] = clampOffset(k, +lay[k][0] || 0, +lay[k][1] || 0);
+    });
     watchRoom();
     renderRoom();
     tick();
