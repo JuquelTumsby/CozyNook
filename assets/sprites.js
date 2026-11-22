@@ -488,6 +488,42 @@
     }
   }
 
+
+  // Draw the character into an element, optionally with some options swapped
+  // (used for the Character page previews and the home card).
+  function previewInto(el, overrides, crop) {
+    if (!el) return;
+    var head = crop === 'head';
+    var w = head ? 26 : CW, h = head ? 24 : CH;
+    var c = el.querySelector('canvas.preview-canvas');
+    if (!c) {
+      c = document.createElement('canvas');
+      c.className = 'preview-canvas sprite-canvas';
+      c.width = w; c.height = h;
+      el.appendChild(c);
+    }
+    var draw = function () {
+      var saved = look;
+      look = Object.assign({}, look, overrides || {});
+      var tmp = document.createElement('canvas');
+      tmp.width = CW; tmp.height = CH;
+      drawCharacter(tmp.getContext('2d'), 0, 0, false, 0, 0);
+      look = saved;
+      var ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      if (head) ctx.drawImage(tmp, 3, 0, 26, 24, 0, 0, 26, 24);
+      else ctx.drawImage(tmp, 0, 0);
+    };
+    if (ready()) draw(); else onReady.push(draw);
+  }
+  function fillPreviews(root) {
+    (root || document).querySelectorAll('[data-preview]').forEach(function (el) {
+      var o = {};
+      try { o = JSON.parse(el.getAttribute('data-preview')); } catch (e) {}
+      previewInto(el, o, el.getAttribute('data-crop'));
+    });
+  }
+
   // ---------------------------------------------------------------- main loop
   function tick() {
     if (document.hidden) return;
@@ -510,7 +546,9 @@
   }
 
   window.CozySprites = {
-    setLook: setLook, portrait: portrait, catPreview: catPreview, petCat: petCat, hop: hopCharacter,
+    setLook: setLook, portrait: portrait, fillPreviews: fillPreviews,
+    figure: function (el) { previewInto(el, {}, 'full'); },
+    catMood: function () { return cat.mode; }, catPreview: catPreview, petCat: petCat, hop: hopCharacter,
     CAT_COATS: CAT_COATS.map(function (c) { return [c[0], c[1]]; })
   };
 })();
