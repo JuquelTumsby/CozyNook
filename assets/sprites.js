@@ -408,14 +408,39 @@
   var ROOM = window.COZY_ROOM_META;
   var roomImgs = {}, roomLoaded = 0;
   if (ROOM) {
-    ['room-day', 'window-night'].forEach(function (name) {
+    ['room-floors', 'room-walls', 'room-objects', 'window-night'].forEach(function (name) {
       var img = new Image();
-      img.onload = function () { roomLoaded++; renderRoom(); };
+      img.onload = function () {
+        roomLoaded++;
+        if (roomLoaded >= ROOM_PARTS) { roomWaiters.splice(0).forEach(function (f) { f(); }); }
+        renderRoom();
+      };
       img.src = 'assets/room/' + name + '.png';
       roomImgs[name] = img;
     });
   }
-  var roomLook = { blanket: '#d5b6d9', pattern: 'gingham' };
+  var ROOM_PARTS = 4;
+  var roomLook = { blanket: '#d5b6d9', pattern: 'gingham', wall: 'rose', floor: 'oak' };
+
+  // Draws floor + wallpaper + furniture for the given themes (shop previews use it too).
+  function drawRoomBase(ctx, wall, floor) {
+    var RW = ROOM.size[0], RH = ROOM.size[1];
+    var fi = Math.max(0, (ROOM.floors || []).indexOf(floor));
+    var wi = Math.max(0, (ROOM.walls || []).indexOf(wall));
+    ctx.drawImage(roomImgs['room-floors'], 0, fi * RH, RW, RH, 0, 0, RW, RH);
+    ctx.drawImage(roomImgs['room-walls'], 0, wi * RH, RW, RH, 0, 0, RW, RH);
+    ctx.drawImage(roomImgs['room-objects'], 0, 0);
+  }
+
+  var roomWaiters = [];
+  function roomThumb(wall, floor) {
+    var c = document.createElement('canvas');
+    c.width = ROOM ? ROOM.size[0] : 320; c.height = ROOM ? ROOM.size[1] : 180;
+    c.className = 'room-thumb';
+    var draw = function () { var x = c.getContext('2d'); x.imageSmoothingEnabled = false; drawRoomBase(x, wall, floor); };
+    if (ROOM && roomLoaded >= ROOM_PARTS) draw(); else roomWaiters.push(draw);
+    return c;
+  }
 
   function blanketColour(x, y, B, pal, pattern) {
     var lx = x - B.x, ly = y - B.y;
@@ -508,14 +533,14 @@
 
   function renderRoom() {
     var c = document.getElementById('roomCanvas');
-    if (!c || !ROOM || roomLoaded < 2) return;
+    if (!c || !ROOM || roomLoaded < ROOM_PARTS) return;
     var room = c.closest('.room');
     var night = room && room.classList.contains('room-night');
     var lampOn = room && room.classList.contains('lamp-on');
     var ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, c.width, c.height);
-    ctx.drawImage(roomImgs['room-day'], 0, 0);
+    drawRoomBase(ctx, roomLook.wall, roomLook.floor);
     if (night) ctx.drawImage(roomImgs['window-night'], 0, 0);
     drawBlanket(ctx);
     if (night) drawNight(ctx, lampOn);
@@ -587,7 +612,8 @@
       accessory: st.accessory, skin: st.skin, hair: st.hair, outfit: st.outfit
     };
     cat.coat = st.catCoat || 'ginger';
-    roomLook = { blanket: st.blanket, pattern: st.blanketPattern || 'gingham' };
+    roomLook = { blanket: st.blanket, pattern: st.blanketPattern || 'gingham',
+                 wall: st.wallpaper || 'rose', floor: st.floorTheme || 'oak' };
     watchRoom();
     renderRoom();
     tick();
@@ -597,6 +623,7 @@
     setLook: setLook, portrait: portrait, fillPreviews: fillPreviews,
     figure: function (el) { previewInto(el, {}, 'full'); },
     catMood: function () { return cat.mode; }, catPreview: catPreview, petCat: petCat, hop: hopCharacter,
+    roomThumb: roomThumb,
     CAT_COATS: CAT_COATS.map(function (c) { return [c[0], c[1]]; })
   };
 })();

@@ -480,6 +480,54 @@ def accessory(kind):
         f = outline(f)
         put(f, [(34, 6), (33, 6), (34, 5), (33, 5)], 'y')
         g = f
+    elif kind == 'crown':
+        def crown(x, y):
+            if 4 <= y <= 8 and 15 <= x <= 32:
+                return True
+            for px_ in (16, 23.5, 31):
+                if y < 4 and abs(x - px_) <= (y - 0) * 0.9 and y >= 1:
+                    return True
+            return False
+        g = outline(shape(crown, 'y'))
+        put(g, [(23, 6), (24, 6)], 'r'); put(g, [(18, 6)], 'x'); put(g, [(29, 6)], 'x')
+        put(g, [(16, 5), (17, 5)], 'i')
+    elif kind == 'catears':
+        def ears(x, y):
+            for ax in (11, 36):
+                if 0 <= y <= 9 and abs(x - ax) <= y * 0.62:
+                    return True
+            return False
+        g = outline(shape(ears, 'n'), shade=False)
+        inner = lambda x, y: any(3 <= y <= 8 and abs(x - ax) <= (y - 3) * 0.55 for ax in (11, 36))
+        recolor(g, [(x, y) for y in range(H) for x in range(W) if inner(x, y)], 'u')
+        band = outline(shape(lambda x, y: y <= 11 and inell(x, y, CX, 15, 17.5, 14) and not inell(x, y, CX, 15, 15.6, 12.2), 'n'), shade=False)
+        g = stack(band, g)
+    elif kind == 'beanie':
+        dome = shape(lambda x, y: inell(x, y, CX, 12, 17.6, 10) and y <= 11, 'x')
+        fold = shape(lambda x, y: 9 <= y <= 13 and 5 <= x <= 42, 'x')
+        g = stack(outline(dome), outline(fold, light=False))
+        for x in range(7, 41, 3):
+            recolor(g, [(x, 10), (x, 11), (x, 12)], 'X')
+        pom = outline(shape(lambda x, y: inell(x, y, CX, 2.5, 3.2, 2.5), 'w'))
+        g = stack(g, pom)
+    elif kind == 'starclips':
+        g = empty()
+        for x0, y0, ch in ((31, 5, 'y'), (36, 11, 'u')):
+            stamp(g, x0, y0, ['..O..', '.OcO.', 'OcccO', '.OcO.', 'O.O.O'] if False else
+                  ['...O...', '..OcO..', 'OOcccOO', '.OcccO.', '.OcOcO.', '.OO.OO.'], {'O': 'O', 'c': ch, '.': '.'})
+            g[y0 + 2][x0 + 3] = 'i'
+    elif kind == 'shades':
+        g = empty()
+        for x0 in (11, 27):
+            lens = shape(lambda x, y: x0 <= x <= x0 + 9 and 18 <= y <= 23 and not (y == 23 and (x == x0 or x == x0 + 9)), 'n')
+            g = stack(g, outline(lens, shade=False))
+            put(g, [(x0 + 2, 19), (x0 + 3, 19), (x0 + 2, 20)], 'N')
+        put(g, [(x, 19) for x in range(21, 27)] + [(8, 19), (9, 19), (10, 19), (37, 19), (38, 19), (39, 19)], 'O')
+    elif kind == 'beret':
+        cap = shape(lambda x, y: inell(x, y, 21, 7, 17, 6.5) and y <= 10, 'r')
+        g = outline(cap)
+        put(g, [(22, 0), (23, 0)], 'O'); put(g, [(22, 1)], 'R')
+        put(g, [(12, 4), (13, 4), (14, 3)], 'i')
     return g
 
 
@@ -659,7 +707,8 @@ def main():
             key = s if s != 'default' else f'default-{gender}'
             add(f'hairback-{key}', back)
             add(f'hairfront-{key}', front)
-    for a in ('glasses', 'bow', 'cap', 'headphones', 'flower'):
+    for a in ('glasses', 'bow', 'cap', 'headphones', 'flower',
+              'crown', 'catears', 'beanie', 'starclips', 'shades', 'beret'):
         add(f'acc-{a}', accessory(a))
     cols = 8
     to_image(cells, W, H, cols).save(os.path.join(OUT, 'character-layers.png'))

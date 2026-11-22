@@ -78,6 +78,14 @@ class Pix:
         if outline:
             self.frame(x, y, w, h, O)
 
+    def shadow(self, x, y, w, h, alpha=70):
+        """Soft see-through shadow, so it looks right on every floor theme."""
+        for yy in range(y, y + h):
+            for xx in range(x, x + w):
+                if 0 <= xx < self.w and 0 <= yy < self.h and (xx + yy) % 2 == 0 or alpha > 90:
+                    if 0 <= xx < self.w and 0 <= yy < self.h:
+                        self.p[xx, yy] = (40, 16, 36, alpha)
+
     def frame(self, x, y, w, h, c):
         self.hline(x, y, w, c); self.hline(x, y + h - 1, w, c)
         self.vline(x, y, h, c); self.vline(x + w - 1, y, h, c)
@@ -143,56 +151,170 @@ def side_bottom(x):
     return WALL_Y
 
 
-def walls(c):
-    # back wall: dusty rose wallpaper with soft stripes
+# ------------------------------------------------------------------ themes
+# Wallpapers and floors are painted on their own see-through layers so the
+# game can swap them (shop themes). Everything else lives on the objects layer.
+WALLPAPERS = {
+    #          stripe A    stripe B    motif       panel ramp (dark, shade, base, light)                 side L     side R     motif kind
+    'rose':   ('#e7b3c4', '#ebbccb', '#f4cfdb', ('#5e3a5a', '#9a6a92', '#b98aa8', '#d2a7c2'), '#c993ab', '#d8a2b9', 'dots'),
+    'starry': ('#2f3a78', '#34407f', '#ffe58a', ('#161b3d', '#232a5a', '#2c3468', '#3d4782'), '#262f66', '#2b3570', 'stars'),
+    'mint':   ('#bfe8d6', '#d3f1e3', '#8fd0b4', ('#2f5e55', '#4f8f80', '#6fae9c', '#93c9b8'), '#a5d6c1', '#b2dfcb', 'gingham'),
+    'sunny':  ('#ffd66e', '#ffe08d', '#ff9f43', ('#7a3d1c', '#c0612b', '#e3803d', '#f4a35e'), '#efbf55', '#f6ca63', 'stripes'),
+    'ocean':  ('#7cc3ea', '#8ccdef', '#e9f8ff', ('#1d3c66', '#2c5a92', '#3c74b4', '#5a92d0'), '#6aaedb', '#73b9e3', 'waves'),
+    'forest': ('#9ccc7a', '#a8d486', '#5f9e4a', ('#4a2a1d', '#6e4029', '#8f5a3a', '#ad7550'), '#86b866', '#90c270', 'leaves'),
+}
+WALL_ORDER = list(WALLPAPERS)
+
+FLOORS = {
+    #           (dark, shade, base, light)                        kind
+    'oak':     (('#5e3823', '#94613d', '#c08552', '#dca06c'), 'planks'),
+    'birch':   (('#8a6a45', '#c9a77a', '#e8cfa4', '#f7e6c4'), 'planks'),
+    'cherry':  (('#3a1a1a', '#6a2e2a', '#8e4436', '#ad5c48'), 'planks'),
+    'checker': (('#3f6a5c', '#9fd6c0', '#fff6e8', '#ffffff'), 'checker'),
+    'carpet':  (('#1f4f57', '#2f7480', '#3f929c', '#5fb3b8'), 'carpet'),
+    'cloud':   (('#5b4a86', '#9483c9', '#b9a8ea', '#d6c9fb'), 'carpet'),
+}
+FLOOR_ORDER = list(FLOORS)
+
+
+def side_bottom_f(x):
+    if x < SIDE:
+        return WALL_Y + (SIDE - x) * 1.6
+    return WALL_Y + (x - (RW - SIDE_R - 1)) * 1.25
+
+
+def wall_y(x, frac):
+    """y on a side wall at `frac` of the wall height above the floor.
+    Lines on the side walls fan out towards the viewer (true perspective)."""
+    return int(round(side_bottom_f(x) * (1 - frac)))
+
+
+def wall_line(c, xs, frac, col, thick=1):
+    """A gap-free line across a side wall at a given height."""
+    for x in xs:
+        a, b = wall_y(x, frac), wall_y(x + 1, frac)
+        lo, hi = min(a, b), max(a, b)
+        for y in range(lo, max(lo + thick, hi)):
+            c.px(x, y, col)
+
+
+def walls(c, theme='rose'):
+    a, b, motif, panel, _, _, kind = WALLPAPERS[theme]
     for x in range(RW):
-        col = RAMP['rose'][2] if (x // 6) % 2 == 0 else '#ebbccb'
+        col = a if (x // 6) % 2 == 0 else b
+        if kind == 'gingham':
+            col = a
         c.vline(x, 0, WALL_Y, col)
-    # little dotted motif
-    for y in range(8, 44, 12):
-        for x in range((y // 12) % 2 * 6 + 3, RW, 12):
-            c.px(x, y, RAMP['rose'][3])
+    if kind == 'dots':
+        for y in range(8, 44, 12):
+            for x in range((y // 12) % 2 * 6 + 3, RW, 12):
+                c.px(x, y, motif)
+    elif kind == 'stars':
+        r = random.Random(3)
+        for _ in range(70):
+            x, y = r.randrange(RW), r.randrange(5, 41)
+            c.px(x, y, motif if r.random() < .5 else '#c9d4ff')
+        for x, y in ((30, 14), (95, 30), (215, 12), (300, 28), (160, 6)):
+            for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+                c.px(x + dx, y + dy, motif)
+    elif kind == 'gingham':
+        for x in range(RW):
+            for y in range(4, 43):
+                bx, by = (x // 5) % 2, (y // 5) % 2
+                if bx and by:
+                    c.px(x, y, motif)
+                elif bx or by:
+                    c.px(x, y, b)
+    elif kind == 'stripes':
+        for x in range(0, RW, 12):
+            c.vline(x, 4, 39, motif); c.vline(x + 1, 4, 39, motif)
+    elif kind == 'waves':
+        import math
+        for row in range(10, 42, 9):
+            for x in range(RW):
+                c.px(x, row + int(round(1.5 * math.sin(x / 3.0))), motif)
+    elif kind == 'leaves':
+        for y in range(9, 42, 11):
+            for x in range((y // 11) % 2 * 9 + 4, RW, 18):
+                c.sprite(x, y, ['.gg', 'ggg', 'gg.', '.d.'], {'g': motif, 'd': panel[0]})
     # lower panelling
-    c.rect(0, 46, RW, WALL_Y - 46, RAMP['mauve'][2])
-    c.hline(0, 44, RW, RAMP['mauve'][3]); c.hline(0, 45, RW, RAMP['mauve'][1]); c.hline(0, 43, RW, O)
+    c.rect(0, 46, RW, WALL_Y - 46, panel[2])
+    c.hline(0, 44, RW, panel[3]); c.hline(0, 45, RW, panel[1]); c.hline(0, 43, RW, O)
     for x in range(10, RW, 26):
-        c.frame(x, 49, 18, 17, RAMP['mauve'][1]); c.hline(x + 1, 50, 16, RAMP['mauve'][3]); c.vline(x + 1, 50, 15, RAMP['mauve'][3])
+        c.frame(x, 49, 18, 17, panel[1]); c.hline(x + 1, 50, 16, panel[3]); c.vline(x + 1, 50, 15, panel[3])
     # skirting
     c.rect(0, WALL_Y - 4, RW, 4, '#fbf2ff'); c.hline(0, WALL_Y - 4, RW, O); c.hline(0, WALL_Y - 1, RW, '#cdb8d8')
     # ceiling trim
-    c.rect(0, 0, RW, 3, RAMP['mauve'][1]); c.hline(0, 3, RW, O)
+    c.rect(0, 0, RW, 3, panel[1]); c.hline(0, 3, RW, O)
 
 
-def side_walls(c):
-    for x in list(range(SIDE)) + list(range(RW - SIDE_R, RW)):
-        bottom = side_bottom(x)
-        left = x < SIDE
-        base = '#c993ab' if left else '#d8a2b9'
-        c.vline(x, 0, bottom, base)
-        c.vline(x, bottom - 4, 4, '#e6d6ee')
-        c.px(x, bottom - 5, O)
-        c.px(x, 46 + (bottom - WALL_Y), RAMP['mauve'][1])
+def side_walls(c, theme='rose'):
+    _, _, _, panel, left_col, right_col, _ = WALLPAPERS[theme]
+    left, right = range(SIDE), range(RW - SIDE_R, RW)
+    for x in list(left) + list(right):
+        c.vline(x, 0, side_bottom(x), left_col if x < SIDE else right_col)
+        # lower panelling, in perspective
+        top = wall_y(x, (WALL_Y - 44) / WALL_Y)
+        c.vline(x, top, side_bottom(x) - top, panel[2] if x >= SIDE else panel[1])
+    for xs in (left, right):
+        wall_line(c, xs, (WALL_Y - 43) / WALL_Y, O)
+        wall_line(c, xs, (WALL_Y - 44.5) / WALL_Y, panel[3])
+        # skirting board
+        for x in xs:
+            t, bt = wall_y(x, 4.5 / WALL_Y), side_bottom(x)
+            c.vline(x, t, bt - t, '#e6d6ee')
+        wall_line(c, xs, 4.5 / WALL_Y, O)
+        # the line where the side wall meets the floor
+        for x in xs:
+            a, b = side_bottom(x), side_bottom(x + 1 if x >= SIDE else x - 1)
+            for y in range(min(a, b) - 1, max(a, b)):
+                c.px(x, y, '#cdb8d8')
+    c.px(0, 3, O)
+    wall_line(c, left, 1 - 3.5 / WALL_Y, O)
+    wall_line(c, right, 1 - 3.5 / WALL_Y, O)
     # corner lines
     c.vline(SIDE, 0, WALL_Y, O); c.vline(RW - SIDE_R - 1, 0, WALL_Y, O)
 
 
-def floor(c):
-    c.rect(0, WALL_Y, RW, RH - WALL_Y, RAMP['oak'][2])
-    y, i = WALL_Y, 0
-    while y < RH:
-        h = 6 + (y - WALL_Y) // 28            # planks look a bit deeper near the viewer
-        c.hline(0, y, RW, RAMP['oak'][0] if i == 0 else RAMP['oak'][1])
-        c.hline(0, y + 1, RW, RAMP['oak'][3])
-        off = (i * 29) % 46
-        for x in range(off, RW, 46):
-            c.vline(x, y + 1, h - 1, RAMP['oak'][1]); c.vline(x + 1, y + 1, h - 1, RAMP['oak'][3])
-        r = random.Random(i)
-        for _ in range(9):
-            gx = r.randrange(0, RW); gy = y + r.randrange(2, max(3, h))
-            c.hline(gx, gy, r.randrange(2, 6), RAMP['oak'][1])
-        y += h; i += 1
+def floor(c, theme='oak'):
+    ramp, kind = FLOORS[theme]
+    d, s, b, l = ramp
+    c.rect(0, WALL_Y, RW, RH - WALL_Y, b)
+    if kind == 'planks':
+        y, i = WALL_Y, 0
+        while y < RH:
+            h = 6 + (y - WALL_Y) // 28            # planks look a bit deeper near the viewer
+            c.hline(0, y, RW, d if i == 0 else s)
+            c.hline(0, y + 1, RW, l)
+            off = (i * 29) % 46
+            for x in range(off, RW, 46):
+                c.vline(x, y + 1, h - 1, s); c.vline(x + 1, y + 1, h - 1, l)
+            r = random.Random(i)
+            for _ in range(9):
+                gx = r.randrange(0, RW); gy = y + r.randrange(2, max(3, h))
+                c.hline(gx, gy, r.randrange(2, 6), s)
+            y += h; i += 1
+    elif kind == 'checker':
+        y, i = WALL_Y, 0
+        while y < RH:
+            h = 9 + (y - WALL_Y) // 14
+            w = 18 + (y - WALL_Y) // 8
+            for x in range(-(i % 2) * w, RW, w * 2):
+                c.rect(x, y, w, h, s)
+            c.hline(0, y, RW, d)
+            y += h; i += 1
+    else:   # soft carpet
+        r = random.Random(11)
+        for y in range(WALL_Y, RH):
+            for x in range(RW):
+                v = r.random()
+                if v < .08:
+                    c.px(x, y, s)
+                elif v > .94:
+                    c.px(x, y, l)
     # contact shadow along the wall
-    c.dither(0, WALL_Y + 1, RW, 2, RAMP['oak'][1], RAMP['oak'][2])
+    c.dither(0, WALL_Y + 1, RW, 2, s, b)
+
 
 
 WIN = {'x': 120, 'y': 9, 'w': 62, 'h': 40}
@@ -261,33 +383,43 @@ def window_extras(c):
 
 
 def door(c):
-    """Door on the right-hand wall, drawn in perspective (it slants like the wall)."""
-    x0, x1 = RW - SIDE_R + 8, RW - SIDE_R + 30
-    for x in range(x0 - 2, x1 + 3):
-        bottom = side_bottom(x) - 4
-        top = bottom - 52 - int((x - x0) * 1.55)
-        frame = x < x0 or x > x1
-        for y in range(top - (2 if frame else 0), bottom):
-            if frame:
-                col = '#fbf2ff' if x in (x0 - 2, x1 + 2) else '#e6d6ee'
-            else:
-                t = x - x0
-                col = RAMP['oak'][2] if 3 < t < 19 else RAMP['oak'][1]
-                rel = (y - top) / max(1, bottom - top)
-                if t in (5, 17) and (0.08 < rel < 0.45 or 0.52 < rel < 0.92):
-                    col = RAMP['oak'][1]
-                if t in (6,) and (0.08 < rel < 0.45 or 0.52 < rel < 0.92):
-                    col = RAMP['oak'][3]
-            c.px(x, y, col)
-        c.px(x, top - (3 if frame else 1), O)
-        c.px(x, bottom, O)
-    for xx in (x0 - 3, x1 + 3):
-        b = side_bottom(xx) - 4
-        for y in range(b - 54 - int((xx - x0) * 1.55), b):
-            c.px(xx, y, O)
-    kx = x0 + 3
-    ky = side_bottom(kx) - 30
-    c.ellipse(kx, ky, 1, 1, '#f7c948', O)
+    """Door on the right-hand wall. It follows the wall's perspective: its
+    bottom runs along the floor line and its top fans out a little, so the
+    side nearer to us is taller."""
+    x0, x1 = RW - SIDE_R + 9, RW - SIDE_R + 31
+    TOP, FRAME = .74, .79
+    d, s, b, l = RAMP['oak']
+    for x in range(x0 - 3, x1 + 4):
+        bot = side_bottom(x) - 1
+        if x0 <= x <= x1:
+            top = wall_y(x, TOP)
+            c.vline(x, top, bot - top, b if 2 < x - x0 < x1 - x0 - 1 else s)
+            for y in range(wall_y(x, FRAME), top):
+                c.px(x, y, '#fbf2ff')
+        else:
+            for y in range(wall_y(x, FRAME), bot):
+                c.px(x, y, '#fbf2ff' if x in (x0 - 3, x1 + 3) else '#e6d6ee')
+    # outlines (gap-free)
+    wall_line(c, range(x0 - 3, x1 + 4), FRAME + .01, O)
+    wall_line(c, range(x0, x1 + 1), TOP, O)
+    for x in (x0 - 4, x1 + 4):
+        c.vline(x, wall_y(x, FRAME + .01), side_bottom(x) - wall_y(x, FRAME + .01), O)
+    for x in (x0 - 1, x1 + 1):
+        c.vline(x, wall_y(x, TOP), side_bottom(x) - wall_y(x, TOP), O)
+    # two recessed panels
+    px0, px1 = x0 + 4, x1 - 4
+    for lo, hi in ((.40, .66), (.09, .33)):
+        for x in range(px0, px1 + 1):
+            for y in range(wall_y(x, hi), wall_y(x, lo)):
+                c.px(x, y, s)
+            c.px(x, wall_y(x, lo), l)
+        wall_line(c, range(px0, px1 + 1), hi, d)
+        c.vline(px0, wall_y(px0, hi), wall_y(px0, lo) - wall_y(px0, hi), d)
+        c.vline(px1, wall_y(px1, hi), wall_y(px1, lo) - wall_y(px1, hi) + 1, l)
+    # brass knob on the far side
+    kx = x0 + 2
+    ky = wall_y(kx, .37)
+    c.rect(kx, ky, 2, 2, '#f7c948'); c.px(kx, ky, '#fff1a8'); c.px(kx + 1, ky + 1, '#a8701f')
 
 
 BED = {'x': 22, 'y': 50, 'w': 120, 'h': 68}
@@ -336,7 +468,7 @@ def desk(c):
         c.frame(x + w - 24, 73 + k * 10, 18, 8, RAMP['oak'][1])
         c.rect(x + w - 17, 76 + k * 10, 4, 2, RAMP['yellow'][2])
     # shadow on the floor
-    c.dither(x + 2, 96, w - 4, 2, RAMP['oak'][1], RAMP['oak'][2])
+    c.shadow(x + 2, 96, w - 4, 3, 80)
 
 
 def computer(c):
@@ -375,24 +507,29 @@ def chair(c):
     c.hline(x + 6, y + 12, 12, RAMP['chair'][1])
 
 
-def paint(night=False):
+def paint(night=False, wall='rose', flr='oak', layer='all'):
+    """layer: 'all' (full picture), 'floor', 'walls' or 'objects'."""
     c = Pix(RW, RH)
-    walls(c)
-    floor(c)
-    side_walls(c)
-    window(c, night)
-    window_extras(c)
-    door(c)
-    desk(c)
-    computer(c)
-    desk_lamp(c)
-    chair(c)
-    bed(c)
+    if layer in ('all', 'floor'):
+        floor(c, flr)
+    if layer in ('all', 'walls'):
+        walls(c, wall)
+        side_walls(c, wall)
+    if layer in ('all', 'objects'):
+        window(c, night)
+        window_extras(c)
+        door(c)
+        desk(c)
+        computer(c)
+        desk_lamp(c)
+        chair(c)
+        bed(c)
     return c
 
 
 # --------------------------------------------------------------------- shop decorations (32 x 24 each)
-DECOR_ORDER = ['lights', 'plush', 'books', 'flower', 'moon', 'plant', 'catbed', 'rug', 'poster', 'beanbag', 'fishtank', 'guitar']
+DECOR_ORDER = ['lights', 'plush', 'books', 'flower', 'moon', 'plant', 'catbed', 'rug', 'poster', 'beanbag', 'fishtank', 'guitar',
+               'dresser', 'shelf', 'clock', 'monstera', 'cushion', 'record', 'lava', 'arcade']
 
 
 def decor_lights(c):
@@ -564,6 +701,100 @@ def decor_guitar(c):
     c.box(9, 22, 15, 2, 'plum', light=False)
 
 
+
+def decor_dresser(c):
+    c.box(4, 4, 24, 18, 'oak')
+    c.rect(3, 3, 26, 3, RAMP['oak'][3]); c.frame(3, 3, 26, 3, O)
+    for k in range(3):
+        y = 7 + k * 5
+        c.frame(6, y, 20, 4, RAMP['oak'][1]); c.hline(7, y + 1, 18, RAMP['oak'][3])
+        c.rect(15, y + 1, 2, 2, RAMP['yellow'][2]); c.px(15, y + 1, RAMP['yellow'][3])
+    c.rect(5, 22, 3, 2, RAMP['oak'][0]); c.rect(24, 22, 3, 2, RAMP['oak'][0])
+    # tiny frame on top
+    c.rect(19, 0, 6, 3, RAMP['blue'][2]); c.frame(19, 0, 6, 4, O)
+
+
+def decor_shelf(c):
+    c.box(2, 15, 28, 4, 'oak')
+    c.rect(5, 19, 2, 4, RAMP['oak'][0]); c.rect(25, 19, 2, 4, RAMP['oak'][0])
+    # trophy
+    c.sprite(5, 5, ['OOOOOOO', 'OyYyyyO', '.OyyyO.', '..OyO..', '...O...', '..OOO..', '.OyyyO.', '.OOOOO.', '.......', '.......'],
+             {'O': O, 'y': RAMP['yellow'][2], 'Y': RAMP['yellow'][3]})
+    # mini cactus
+    c.box(15, 7, 5, 6, 'leaf'); c.box(13, 9, 3, 3, 'leaf'); c.box(14, 12, 7, 3, 'pot')
+    c.px(17, 6, '#ef8db0')
+    # little books
+    for i, col in enumerate(('#e2554e', '#4f8fd0', '#9a6bc9')):
+        c.rect(23 + i * 2, 8 + (i % 2), 2, 7 - (i % 2), col); c.vline(23 + i * 2, 8 + (i % 2), 7 - (i % 2), O)
+    c.vline(29, 8, 7, O); c.hline(23, 7, 7, O)
+
+
+def decor_clock(c):
+    c.ellipse(16, 12, 10, 10, RAMP['teal'][2], O)
+    c.ellipse(16, 12, 8, 8, '#fff4e4', RAMP['teal'][1])
+    for dx, dy in ((0, -6), (6, 0), (0, 6), (-6, 0)):
+        c.px(16 + dx, 12 + dy, O)
+    c.vline(16, 7, 6, O); c.hline(16, 12, 4, '#e2554e'); c.px(16, 12, O)
+    c.px(11, 7, '#ffffff'); c.px(12, 6, '#ffffff')
+    c.rect(9, 1, 4, 3, RAMP['yellow'][2]); c.frame(9, 1, 4, 3, O)
+    c.rect(20, 1, 4, 3, RAMP['yellow'][2]); c.frame(20, 1, 4, 3, O)
+
+
+def decor_monstera(c):
+    for cx, cy, rx, ry in ((10, 7, 6, 4), (22, 6, 6, 4), (16, 3, 5, 3), (8, 12, 5, 3), (24, 12, 5, 3)):
+        c.ellipse(cx, cy, rx, ry, RAMP['leaf'][2], O)
+        c.hline(cx - rx + 2, cy, rx * 2 - 3, RAMP['leaf'][1])
+        c.px(cx - 2, cy - 1, RAMP['leaf'][3]); c.px(cx + 1, cy - 2, RAMP['leaf'][3])
+    for x in (14, 16, 18):
+        c.vline(x, 9, 8, RAMP['leaf'][1])
+    c.box(9, 16, 14, 8, 'teal')
+    c.rect(8, 16, 16, 2, RAMP['teal'][3]); c.frame(8, 16, 16, 2, O)
+
+
+def decor_cushion(c):
+    c.ellipse(16, 16, 13, 6, RAMP['teal'][2], O)
+    c.ellipse(16, 14, 11, 4, RAMP['teal'][3])
+    c.ellipse(16, 16, 2, 1, RAMP['teal'][1], O)
+    for x in (4, 28):
+        c.px(x, 12, O); c.px(x, 13, RAMP['teal'][1])
+    c.hline(6, 20, 20, RAMP['teal'][1])
+    c.px(9, 12, '#ffffff'); c.px(10, 12, '#ffffff')
+
+
+def decor_record(c):
+    c.box(2, 10, 28, 12, 'dwood')
+    c.rect(4, 11, 24, 8, RAMP['dwood'][3])
+    c.ellipse(13, 15, 7, 4, '#2a2230', O)
+    c.ellipse(13, 15, 2, 1, '#ef5b6b')
+    c.hline(9, 14, 3, '#4e4558'); c.hline(14, 17, 4, '#4e4558')
+    c.vline(25, 11, 4, '#c4baa6'); c.hline(21, 15, 5, '#c4baa6'); c.px(25, 11, O)
+    c.rect(24, 18, 3, 2, RAMP['yellow'][2])
+    # music notes floating
+    c.sprite(4, 1, ['.OO', '.OO', '.O.', 'OO.', 'OO.'], {'O': RAMP['purple'][2]})
+    c.sprite(24, 0, ['.OOO', '.O.O', 'OO.O', 'OOOO', '...O'], {'O': '#ef8db0'})
+
+
+def decor_lava(c):
+    c.box(11, 16, 10, 6, 'purple')
+    c.sprite(10, 2, ['...OOOOOO...', '..OaaaaaaO..', '..OaaaaaaO..', '.OaaaaaaaaO.', '.OaaaaaaaaO.', '.OaaaaaaaaO.',
+                     '.OaaaaaaaaO.', 'OaaaaaaaaaaO', 'OaaaaaaaaaaO', 'OaaaaaaaaaaO', 'OaaaaaaaaaaO', 'OaaaaaaaaaaO',
+                     'OaaaaaaaaaaO', '.OaaaaaaaaO.', '..OOOOOOOO..'], {'O': O, 'a': '#ffb36b'})
+    for cx, cy, r in ((15, 6, 1), (17, 10, 2), (14, 13, 1), (16, 15, 1)):
+        c.ellipse(cx, cy, r, r, '#ef4b7a')
+    c.vline(12, 6, 8, '#ffe0b8')
+    c.box(12, 0, 8, 3, 'purple')
+
+
+def decor_arcade(c):
+    c.box(8, 1, 16, 23, 'blue')
+    c.rect(10, 4, 12, 8, '#1b2150'); c.frame(9, 3, 14, 10, O)
+    c.sprite(12, 6, ['.y.r', 'yyy.', '.y..'], {'y': '#f7c948', 'r': '#ef5b6b'})
+    c.px(19, 9, '#7fe0c0'); c.px(20, 9, '#7fe0c0')
+    c.rect(9, 13, 14, 4, RAMP['blue'][3]); c.frame(8, 13, 16, 4, O)
+    c.px(12, 14, '#ef5b6b'); c.px(12, 15, O); c.px(17, 15, '#f7c948'); c.px(19, 15, '#7fe0c0')
+    c.rect(10, 1, 12, 2, '#ef8db0'); c.hline(11, 1, 10, '#ffd0e4')
+
+
 # --------------------------------------------------------------------- garden (32 x 32 each)
 GARDEN_ORDER = ['soil', 'sprout', 'daisy', 'tulip', 'sunflower', 'can']
 
@@ -652,8 +883,15 @@ def build_decor():
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    day = paint(False)
-    day.img.save(os.path.join(OUT, 'room-day.png'))
+    # theme sheets: one 320x180 band per theme, stacked top to bottom
+    for name, order, key in (('room-floors.png', FLOOR_ORDER, 'floor'), ('room-walls.png', WALL_ORDER, 'walls')):
+        sheet = Image.new('RGBA', (RW, RH * len(order)), (0, 0, 0, 0))
+        for i, t in enumerate(order):
+            kw = {'flr': t} if key == 'floor' else {'wall': t}
+            sheet.paste(paint(layer=key, **kw).img, (0, i * RH))
+        sheet.save(os.path.join(OUT, name))
+    paint(layer='objects').img.save(os.path.join(OUT, 'room-objects.png'))
+    paint().img.save(os.path.join(OUT, 'room-day.png'))      # preview of the default look
     night = paint(True)
     wx, wy, ww, wh = WIN['x'], WIN['y'], WIN['w'], WIN['h']
     overlay = Image.new('RGBA', (RW, RH), (0, 0, 0, 0))
@@ -662,7 +900,7 @@ def main():
     build_decor()
     build_sheet(GARDEN_ORDER, 'garden_', 32, 32, 'garden.png')
     meta = {'size': [RW, RH], 'decor': DECOR_ORDER, 'garden': GARDEN_ORDER, 'blanket': BLANKET, 'lamp': LAMP,
-            'bed': BED, 'computer': COMPUTER, 'window': WIN, 'wallY': WALL_Y,
+            'bed': BED, 'computer': COMPUTER, 'walls': WALL_ORDER, 'floors': FLOOR_ORDER, 'window': WIN, 'wallY': WALL_Y,
             'lampGlow': {'x': LAMP['x'] + 8, 'y': LAMP['y'] + 12}}
     with open(os.path.join(OUT, 'room-meta.js'), 'w') as fh:
         fh.write('/* Generated by tools/build_room.py - do not edit by hand. */\n')

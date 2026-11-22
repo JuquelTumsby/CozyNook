@@ -54,7 +54,13 @@
   "acc-bow": 46,
   "acc-cap": 47,
   "acc-headphones": 48,
-  "acc-flower": 49
+  "acc-flower": 49,
+  "acc-crown": 50,
+  "acc-catears": 51,
+  "acc-beanie": 52,
+  "acc-starclips": 53,
+  "acc-shades": 54,
+  "acc-beret": 55
  },
  "split": 31,
  "feet": 62,
