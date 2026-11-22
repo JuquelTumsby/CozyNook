@@ -77,6 +77,9 @@ body{background:#f8eee0;background-image:radial-gradient(#d8b99a35 1px,transpare
 @media(max-width:850px){.app{padding:0 12px 14px}.layout{grid-template-columns:1fr}.sidebar{display:none}.dashboard-grid>div:last-child{grid-template-columns:1fr}.room{min-height:340px}}
 @media(max-width:520px){.welcome h2{font-size:15px}.room{min-height:290px}.room-bed{height:88px}.character{font-size:48px}.inventory-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+/* Original illustrated bedroom artwork (not emoji placeholders) */
+.room{position:relative;display:block;overflow:hidden;padding:0!important;min-height:360px;height:clamp(320px,37vw,480px);background:#efd8c5!important;border:5px solid #9aa17d!important;box-shadow:0 5px 0 #76604a35!important;isolation:isolate}.room:before,.room:after{display:none!important}.room-art{display:block;width:100%;height:100%;image-rendering:pixelated;shape-rendering:crispEdges}.room-decor{position:absolute;inset:0;pointer-events:none;z-index:5}.room-decor-item{pointer-events:auto;font-size:32px;touch-action:none}@media(max-width:520px){.room{height:285px;min-height:285px}}
 </style>
 </head>
 <body>
@@ -103,8 +106,36 @@ body{background:#f8eee0;background-image:radial-gradient(#d8b99a35 1px,transpare
         <div class="dashboard-grid">
           <div>
             <div class="panel"><div class="panel-head"><h3>♡ Your cozy corner ♡</h3><span class="subtle">A little room to dream and grow</span></div>
-              <div class="room"><div class="room-sun">☀️</div><div class="weather-badge">☀️ SUNNY DAY</div><div class="plant" id="roomPlant">🪴</div><div class="room-decor" id="roomDecor"></div><div class="room-shelf"><span>📚 🌼 📕</span></div><div class="desk"><span class="desk-computer">🖥️</span><span class="desk-books">📚</span></div><div class="desk-chair">🪑</div><div class="room-bed"><div class="bed-pillow"></div><div class="bed-blanket" id="blanket"></div></div><div class="rug"></div><div class="room-cat">🐈</div><div class="character" id="roomCharacter">🧑🏻</div><div class="room-caption">♡ A little room to dream and grow ♡</div></div>
-              <div class="room-controls"><button class="soft-btn" data-go="customize">🧑 Change character</button><button class="soft-btn" data-go="shop">🪴 Decorate room</button></div><p class="subtle" id="arrangeHint" aria-live="polite">Want to move something? Hold and drag any equipped decoration directly around your room.</p></div><div class="panel"><div class="panel-head"><h3>🧸 Your furniture collection</h3><span class="subtle">Equip items to show them in your room</span></div><div class="inventory-grid" id="decorInventory"></div>
+              <div class="room"><svg class="room-art" viewBox="0 0 1000 440" role="img" aria-label="Detailed illustrated pixel-art bedroom with a sunny window, bed, sleeping cat, desk, computer, bookshelves, plants and a studying character" xmlns="http://www.w3.org/2000/svg">
+<defs><pattern id="wallpaper" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="#f4ddce"/><path d="M0 31H32M31 0V32" stroke="#e4c3b2" stroke-width="2"/><path d="M7 8h4m12 13h5" stroke="#fff4e5" stroke-width="3"/></pattern><pattern id="floorboards" width="40" height="24" patternUnits="userSpaceOnUse"><rect width="40" height="24" fill="#b98d6c"/><path d="M0 23H40M20 0V23" stroke="#956e56" stroke-width="2"/></pattern><pattern id="blanket" width="30" height="30" patternUnits="userSpaceOnUse"><rect width="30" height="30" fill="#aebe9a"/><path d="M0 0h15v15H0zm15 15h15v15H15z" fill="#e7e8ce"/></pattern></defs>
+<rect width="1000" height="440" fill="url(#wallpaper)"/><rect y="352" width="1000" height="88" fill="url(#floorboards)"/><path d="M0 350H1000" stroke="#805e4b" stroke-width="9"/>
+<!-- window -->
+<rect x="300" y="35" width="345" height="235" fill="#a7795d" stroke="#795743" stroke-width="9"/><rect x="314" y="49" width="317" height="207" fill="#9ac8e2"/><path d="M314 177q65-50 115-5t90-8t112 7v85H314Z" fill="#a4bd91"/><path d="M314 220q75-34 130-2t105-1t82 4v35H314Z" fill="#6f986d"/><path d="M473 49v207M314 150h317" stroke="#fff0d9" stroke-width="11"/><path d="M337 88q22-22 44 0q22-22 44 0m108-18q20-20 40 0q20-20 40 0" fill="none" stroke="#fff9e9" stroke-width="11" stroke-linecap="round"/>
+<!-- curtains -->
+<path d="M280 28q-34 40-25 190q10 25 38 35V28m372 0q34 40 25 190q-10 25-38 35V28" fill="#e7c4a8" stroke="#c18e72" stroke-width="5"/>
+<!-- left shelf -->
+<rect x="35" y="100" width="170" height="245" fill="#a87856" stroke="#79543f" stroke-width="9"/><path d="M35 180h170M35 260h170" stroke="#79543f" stroke-width="8"/>
+<g stroke="#75513f" stroke-width="3"><path d="M50 110v62h20v-62M76 117v55h22v-55M105 107v65h21v-65M134 120v52h23v-52M164 111v61h23v-61" fill="#8c9c7d"/><path d="M50 190v62h22v-62M80 194v58h21v-58M109 186v66h23v-66M140 196v56h20v-56M166 188v64h22v-64" fill="#dba783"/><path d="M50 270v65h24v-65M81 276v59h20v-59M109 268v67h24v-67M141 276v59h22v-59M169 270v65h19v-65" fill="#a7b89b"/></g>
+<!-- framed botanical print -->
+<rect x="730" y="48" width="95" height="115" fill="#fff0dd" stroke="#a77c60" stroke-width="7"/><rect x="742" y="60" width="71" height="91" fill="#c9d6b4"/><path d="M778 137v-51m0 23q-24-30-29-7q11 18 29 7m0 0q24-32 30-8q-11 18-30 8" fill="none" stroke="#67865e" stroke-width="6"/>
+<!-- right bookcase -->
+<rect x="855" y="180" width="120" height="175" fill="#a87856" stroke="#79543f" stroke-width="8"/><path d="M855 237h120M855 295h120" stroke="#79543f" stroke-width="7"/><g stroke="#75513f" stroke-width="3"><path d="M868 190v42h16v-42M889 186v46h18v-46M913 193v39h17v-39M936 187v45h24v-45" fill="#839879"/><path d="M868 247v42h18v-42M892 245v44h18v-44M916 250v39h17v-39M939 245v44h18v-44" fill="#d9a17b"/><path d="M868 305v41h18v-41M892 302v44h19v-44M917 307v39h17v-39M940 303v43h18v-43" fill="#a7b99a"/></g>
+<!-- vines and plants -->
+<g fill="#8ba879" stroke="#5e7e59" stroke-width="4"><path d="M70 0v75q-28-30-31-4q15 20 31 4q18-30 32-9q-10 21-32 9m800-75v75q-28-30-31-4q15 20 31 4q18-30 32-9q-10 21-32 9"/></g>
+<g stroke="#607c54" stroke-width="4"><path d="M90 100q-38-42-42-8q17 30 42 8m0 0q7-48 28-25q7 25-28 25m0 0q33-33 42-8q-12 23-42 8" fill="#8ba879"/><path d="M70 105h44l-7 35H78Z" fill="#d69b78" stroke="#966b54"/><path d="M790 155q-35-43-40-9q17 30 40 9m0 0q7-48 28-25q7 25-28 25m0 0q33-33 42-8q-12 23-42 8" fill="#8ba879"/><path d="M770 160h44l-7 35h-30Z" fill="#d69b78" stroke="#966b54"/></g>
+<!-- bed -->
+<rect x="235" y="300" width="355" height="91" rx="13" fill="#92745d" stroke="#765744" stroke-width="8"/><rect x="250" y="270" width="325" height="112" rx="20" fill="url(#blanket)" stroke="#829477" stroke-width="7"/><rect x="265" y="280" width="105" height="54" rx="16" fill="#fff0df" stroke="#d3b198" stroke-width="5"/>
+<!-- sleepy cat -->
+<g stroke="#8b6652" stroke-width="5" stroke-linejoin="round"><path d="M390 329q-13-48 22-54l20 19q42-25 66 8q20 29-8 46q-44 22-86 0Z" fill="#d99d70"/><path d="M399 291l-4-23 24 16m63 1 17-22 2 30" fill="#d99d70"/><path d="M410 321q9 10 18 0m30 0q9 10 18 0" fill="none" stroke="#654c42" stroke-width="4"/><path d="M436 333q8 8 16 0" fill="none" stroke="#bd7770" stroke-width="4"/></g>
+<!-- rug and desk -->
+<ellipse cx="735" cy="405" rx="225" ry="25" fill="#d9b9a5" stroke="#b38e78" stroke-width="6"/><rect x="625" y="290" width="330" height="23" rx="5" fill="#a87856" stroke="#76523e" stroke-width="6"/><rect x="644" y="312" width="18" height="95" fill="#805b45"/><rect x="918" y="312" width="18" height="95" fill="#805b45"/><rect x="672" y="320" width="76" height="54" fill="#c28e6b" stroke="#805b45" stroke-width="4"/><path d="M702 344h15" stroke="#f2d9bc" stroke-width="5"/>
+<!-- computer -->
+<rect x="735" y="190" width="145" height="91" rx="6" fill="#66566e" stroke="#453e50" stroke-width="7"/><rect x="746" y="201" width="123" height="68" fill="#a9bc98"/><path d="M807 269v13m-29 0h58" stroke="#8c735e" stroke-width="7"/><path d="M804 250q-22-25-25-5q11 16 25 5m0 0q6-28 21-15q6 16-21 15" fill="#64855f"/>
+<!-- character, pixel illustration -->
+<g stroke="#60483f" stroke-width="6" stroke-linejoin="round"><path d="M780 185q-6-60 47-64q55 2 58 62l-14 35h-78Z" fill="#60463e"/><path d="M789 162q-2-39 39-45q40 2 45 43v40q-12 28-44 27q-39-3-42-29Z" fill="#e8b18f"/><path d="M783 153q-7-47 40-56q52-4 63 45q-20-17-39-24q-26 25-64 35" fill="#67483d"/><path d="M804 178q9 8 17 0m22 0q9 8 17 0" fill="none" stroke="#59413c" stroke-width="5"/><path d="M818 194q11 11 22 0" fill="none" stroke="#c77876" stroke-width="4"/><path d="M774 218q-22 19-22 65h130q-2-50-26-65q-39 27-82 0" fill="#899c79"/><path d="M782 235q-25 23-42 43m125-41q22 20 36 37" fill="none" stroke="#e8b18f" stroke-width="15" stroke-linecap="round"/></g>
+<!-- little flowers on the sill -->
+<g fill="#eaa1a6" stroke="#b9787b" stroke-width="2"><circle cx="350" cy="265" r="7"/><circle cx="364" cy="265" r="7"/><circle cx="357" cy="255" r="7"/><circle cx="357" cy="275" r="7"/></g>
+</svg><div class="room-decor" id="roomDecor"></div></div><div class="room-controls"><button class="soft-btn" data-go="customize">🧑 Change character</button><button class="soft-btn" data-go="shop">🪴 Decorate room</button></div><p class="subtle" id="arrangeHint" aria-live="polite">Want to move something? Hold and drag any equipped decoration directly around your room.</p></div><div class="panel"><div class="panel-head"><h3>🧸 Your furniture collection</h3><span class="subtle">Equip items to show them in your room</span></div><div class="inventory-grid" id="decorInventory"></div>
             </div>
             <div class="panel"><div class="panel-head"><h3>📝 Today's little tasks</h3><button class="tiny-btn" data-go="planner">See all →</button></div><div id="homeTasks"></div></div>
           </div>
