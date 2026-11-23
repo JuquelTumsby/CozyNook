@@ -2,6 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // The game owner. Replace ADMIN_UID with your own User UID
+    // (Firebase console -> Authentication -> Users -> "User UID" column).
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'ADMIN_UID';
+    }
+
     // Each player's saved progress: only they can read or write it.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -24,6 +30,32 @@ service cloud.firestore {
         && request.resource.data.to is string && request.resource.data.to.size() <= 40
         && request.resource.data.look is map && request.resource.data.look.size() <= 8
         && request.resource.data.seen is int;
+    }
+
+    // Player directory so the owner can find someone by Player ID or email.
+    // Each player writes only their own entry; only the owner can read it.
+    match /players/{userId} {
+      allow read: if isAdmin();
+      allow create, update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['id', 'email'])
+        && request.resource.data.id == request.auth.uid[0:8].upper()
+        && request.resource.data.email == request.auth.token.get('email', '').lower();
+    }
+
+    // Gifts from the owner. Only the owner can send or delete them; a player can
+    // read gifts sent to them (or to everyone). Collected gifts are remembered in
+    // the player's own save, so each gift can only be collected once.
+    match /gifts/{giftId} {
+      allow read: if isAdmin() || (request.auth != null && (resource.data.to == request.auth.uid || resource.data.to == 'all'));
+      allow delete: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['to', 'coins', 'xp', 'decor', 'msg', 'at'])
+        && request.resource.data.to is string && request.resource.data.to.size() <= 40
+        && request.resource.data.coins is int && request.resource.data.coins >= 0 && request.resource.data.coins <= 100000
+        && request.resource.data.xp is int && request.resource.data.xp >= 0 && request.resource.data.xp <= 100000
+        && request.resource.data.decor is string && request.resource.data.decor.size() <= 40
+        && request.resource.data.msg is string && request.resource.data.msg.size() <= 140
+        && request.resource.data.at is int;
     }
   }
 }

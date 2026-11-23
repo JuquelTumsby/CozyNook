@@ -333,6 +333,13 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
 .reminder-row input[type=time]{flex:0 0 auto;width:auto}
 .welcome-back{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(24,14,48,.62)}
 .welcome-back[hidden]{display:none}
+.acct-pid{font-size:13px;font-weight:800}.acct-pid b{font-family:monospace;font-size:15px;letter-spacing:1px}
+.gift-box{text-align:center;font-size:48px;animation:tipbob 1.4s ease-in-out infinite}.gift-what{font:900 16px Nunito,sans-serif;color:#145a3c;background:#dcf7e9;border:2px solid #302b46;border-radius:6px;padding:8px}
+#giftPopup h3{text-align:center}.ga-card{text-align:left!important}.ga-card h3{text-align:center}.ga-to{display:flex;gap:16px;justify-content:center;font-weight:900;margin:6px 0}.ga-find{display:flex;gap:6px}.ga-find .text-input{flex:1;font-size:15px}.ga-found{font-size:12px!important;color:#5c4f78;margin:6px 0 10px!important}
+.ga-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ga-card select.text-input{width:100%;font-size:15px}.ga-sub{font-size:16px!important;margin-top:14px!important}
+.ga-sent{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}.ga-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:#f3ecff;border:2px solid #d9cdea;border-radius:6px;font-size:13px}.ga-row small{color:#6a5d86}.ga-row button{padding:4px 8px;background:#ffd6e0;border:2px solid #302b46!important;border-radius:5px;font-weight:900;font-size:12px}
+#acctAdmin[hidden]{display:none}
+
 .explore{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:12px;background:rgba(24,14,48,.75)}.explore[hidden]{display:none}.explore.locked .ex-card{display:none}
 .ex-lock{position:absolute;inset:0;display:grid;place-items:center;padding:16px}.ex-lock[hidden]{display:none}.ex-lock h3{text-align:center}
 .ex-card{width:min(980px,100%);max-height:100%;overflow:auto;background:#fffdf8;border:4px solid #302b46;border-radius:10px;box-shadow:6px 6px 0 #302b4680;padding:10px 12px}
@@ -481,6 +488,15 @@ body.exploring .music-player{z-index:70}
 </div>
 <div class="toast" id="toast"></div>
 <div class="music-player" id="musicPlayer"><button class="music-toggle" id="musicToggle" type="button" aria-label="Study music"><span class="music-note" aria-hidden="true">♪</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="music-body"><div class="music-info"><b id="musicTitle">Rainy Window</b><small><span id="musicNum">1 / 5</span> · Study Vibes</small></div><div class="music-ctrls"><button type="button" id="musicPrev" aria-label="Previous track">⏮</button><button type="button" id="musicPlay" class="music-play" aria-label="Play music">▶</button><button type="button" id="musicNext" aria-label="Skip to next track">⏭</button></div><label class="music-vol"><span aria-hidden="true">🔈</span><input type="range" id="musicVol" min="0" max="100" value="60" aria-label="Music volume"></label></div></div>
+<div class="welcome-back" id="giftPopup" hidden role="dialog" aria-modal="true" aria-labelledby="giftTitle"><div class="panel wb-card"><div class="gift-box" aria-hidden="true">🎁</div><h3 id="giftTitle">A gift for you!</h3><p id="giftMsg"></p><p class="gift-what" id="giftWhat"></p><div class="wb-actions"><button class="primary-btn" id="giftCollect" type="button">Collect</button></div></div></div>
+<div class="welcome-back" id="giftAdmin" hidden role="dialog" aria-modal="true" aria-labelledby="gaTitle"><div class="panel wb-card acct-card ga-card"><button class="acct-x" id="gaClose" type="button" aria-label="Close">✕</button><h3 id="gaTitle">Send a gift</h3>
+<div class="ga-to"><label><input type="radio" name="gaTo" id="gaOne" checked> One player</label><label><input type="radio" name="gaTo" id="gaAll"> Everyone</label></div>
+<div class="ga-find" id="gaFindRow"><input class="text-input" id="gaWho" placeholder="Player ID or email"><button class="soft-btn" id="gaFind" type="button">Find</button></div><p class="ga-found" id="gaFound"></p>
+<div class="ga-grid"><label class="acct-field">Coins<input class="text-input" id="gaCoins" type="number" min="0" max="100000" placeholder="0"></label><label class="acct-field">XP <small>(100 XP = 1 level)</small><input class="text-input" id="gaXp" type="number" min="0" max="100000" placeholder="0"></label></div>
+<label class="acct-field">Decoration<select class="text-input" id="gaDecor"><option value="">None</option></select></label>
+<label class="acct-field">Message<input class="text-input" id="gaText" maxlength="140" placeholder="Great job this week!"></label>
+<div class="wb-actions"><button class="primary-btn" id="gaSend" type="button">Send gift 🎁</button></div><p class="acct-msg" id="gaMsg" hidden role="status"></p>
+<h3 class="ga-sub">Recently sent</h3><div class="ga-sent" id="gaSent"></div></div></div>
 <div class="welcome-back" id="welcomeBack" hidden role="dialog" aria-modal="true" aria-labelledby="wbTitle"><div class="panel wb-card"><div class="wb-cat" id="wbCat"></div><h3 id="wbTitle">Welcome back!</h3><p id="wbText"></p><div class="wb-actions"><button class="primary-btn" id="wbPlanner" type="button"><span class="px-icon i-planner mini" aria-hidden="true"></span>See my tasks</button><button class="soft-btn" id="wbClose" type="button"><span>Hi <span class="cat-name-inline">Mochi</span>!</span><span class="px-icon i-heart mini" aria-hidden="true"></span></button></div><button class="acct-link" id="wbSignIn" type="button" hidden>Sign in so you never lose your room</button></div></div>
 <div class="welcome-back" id="accountModal" hidden role="dialog" aria-modal="true" aria-labelledby="acctTitle"><div class="panel wb-card acct-card"><button class="acct-x" id="acctClose" type="button" aria-label="Close">✕</button>
 <div id="acctWait"><h3 id="acctTitle">My account</h3><p>Getting things ready…</p></div>
@@ -491,7 +507,7 @@ body.exploring .music-player{z-index:70}
 <label class="acct-field">Password<input class="text-input" id="acctPassInput" type="password" autocomplete="current-password" placeholder="At least 6 characters"></label>
 <div class="wb-actions"><button class="primary-btn" id="acctSignIn" type="button">Sign in</button><button class="soft-btn" id="acctSignUp" type="button">Create account</button></div>
 <button class="acct-link" id="acctForgot" type="button">Forgot password?</button></div>
-<div id="acctIn" hidden><h3>You're signed in!</h3><p class="acct-sub"><b id="acctWho"></b><br><small id="acctEmail"></small></p><p class="acct-saved"><span class="px-icon i-check mini" aria-hidden="true"></span>Your progress saves online automatically.</p><p class="acct-time" id="acctSynced"></p><div class="wb-actions"><button class="soft-btn" id="acctSignOut" type="button">Sign out</button></div><p class="acct-note">Signing out leaves a fresh room on this device. Your progress stays safe in your account.</p></div>
+<div id="acctIn" hidden><h3>You're signed in!</h3><p class="acct-sub"><b id="acctWho"></b><br><small id="acctEmail"></small></p><p class="acct-saved"><span class="px-icon i-check mini" aria-hidden="true"></span>Your progress saves online automatically.</p><p class="acct-pid">Player ID: <b id="acctPid"></b> <button type="button" class="acct-link" id="acctPidCopy">Copy</button></p><p class="acct-time" id="acctSynced"></p><div class="wb-actions"><button class="primary-btn" id="acctAdmin" type="button" hidden>🎁 Send gifts</button><button class="soft-btn" id="acctSignOut" type="button">Sign out</button></div><p class="acct-note">Signing out leaves a fresh room on this device. Your progress stays safe in your account.</p></div>
 <div id="acctChoose" hidden><h3>Which progress to keep?</h3><p class="acct-sub">This device and your account have different progress. Pick one to keep.</p><div class="acct-choices"><button class="acct-choice" id="chooseCloud" type="button"><b>My account</b><small></small></button><button class="acct-choice" id="chooseLocal" type="button"><b>This device</b><small></small></button></div><p class="acct-note">The one you don't pick will be replaced.</p></div>
 <p class="acct-msg" id="acctMsg" hidden role="status"></p></div></div>
 <script src="assets/sprites/sprites-meta.js?v=20261123f"></script>
@@ -693,6 +709,8 @@ body.exploring .music-player{z-index:70}
   function checkReminder(){const r=state.reminders;if(!r||!r.on)return;const now=new Date();const [hh,mm]=(r.time||'18:00').split(':').map(Number);const due=new Date(now);due.setHours(hh||0,mm||0,0,0);if(now<due||r.last===dayKey()||!tasksLeft())return;r.last=dayKey();quietSave();const n=catName(),left=tasksLeft();let shown=false;if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){try{new Notification(n+' is waiting for you! 🐾',{body:'You have '+left+' task'+(left===1?'':'s')+' left in CozyNook.',tag:'cozynook-reminder'});shown=true;}catch(e){}}if(!shown)showWelcome(n+' has a little reminder!');}
   setInterval(checkReminder,30000);
   CozyApp.toast=toast;
+  CozyApp.decorNames=()=>decorItems.map(d=>d[0]);
+  CozyApp.claimGift=(id,g)=>{state.claimedGifts=Array.isArray(state.claimedGifts)?state.claimedGifts:[];if(state.claimedGifts.includes(id))return false;state.claimedGifts.push(id);const coins=Math.max(0,g.coins|0),xp=Math.max(0,g.xp|0);let extra=0,got=[];if(g.decor){const item=decorItems.find(d=>d[0]===g.decor);if(item){if(state.decor.includes(item[0]))extra=item[2];else{state.decor.push(item[0]);state.equippedDecor.push(item[0]);got.push(item[0]);}}}if(coins+extra)got.unshift('+'+(coins+extra)+' coins');if(xp)got.push('+'+xp+' XP');reward(coins+extra,xp);renderShop();renderRoomDecor();toast('🎁 Gift collected: '+got.join(', ')+'!');return true;};
   $('roomWindow').addEventListener('click',()=>{if(window.CozyExplore)CozyExplore.open();});$('roomWindow').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();if(window.CozyExplore)CozyExplore.open();}});
   CozyApp.getData=k=>state[k];CozyApp.setData=(k,v)=>{state[k]=v;save();};CozyApp.earn=(c,xp,msg)=>{reward(c,xp);toast(msg);};
   $('moveTip').hidden=!!state.moveTipDone;$('moveTip').onclick=()=>{state.moveTipDone=true;$('moveTip').hidden=true;save();};
@@ -741,6 +759,7 @@ body.exploring .music-player{z-index:70}
 <script src="assets/games/words.js?v=20261123f"></script>
 <script src="assets/games.js?v=20261123f"></script>
 <script src="assets/explore.js?v=20261123f"></script>
+<script src="assets/gifts.js?v=20261123i"></script>
 <script src="assets/cloud.js?v=20261123f"></script>
 </body>
 </html>

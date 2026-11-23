@@ -52,6 +52,7 @@
       show('acctIn');
       $('acctWho').textContent = user.displayName || user.email || 'Cozy friend';
       $('acctEmail').textContent = user.displayName ? (user.email || '') : '';
+      $('acctPid').textContent = user.uid.slice(0, 8).toUpperCase();
       var m = readMeta();
       $('acctSynced').textContent = m.syncedAt ? 'Last saved online: ' + new Date(m.syncedAt).toLocaleString() : 'Saving…';
     } else show('acctOut');
@@ -141,6 +142,8 @@
       if (!cloud || !cloud.save) { return keepLocal().then(function () { toast('Signed in! Your progress is now saved online.'); setTimeout(function () { grantBonus(cloud); }, 1800); }); }
       if (m.uid === user.uid) {
         // This device is already linked to the account.
+        // Same progress on both sides (e.g. the last save finished just as the page reloaded): nothing to choose.
+        if (fingerprint(cloud.save) === fingerprint(localRaw())) { m.syncedAt = cloud.updatedAt; m.dirty = false; writeMeta(m); lastPushed = fingerprint(cloud.save); grantBonus(cloud); return; }
         var cloudNewer = (cloud.updatedAt || 0) > (m.syncedAt || 0);
         if (!cloudNewer) { lastPushed = fingerprint(cloud.save); grantBonus(cloud); return push(false); }
         if (!m.dirty) return adopt(cloud.save, cloud.updatedAt); // played on another device: pick that up
@@ -193,6 +196,7 @@
         location.reload();
       }));
     });
+    $('acctPidCopy').addEventListener('click', function () { var t = $('acctPid').textContent; if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { setMsg('Player ID copied!', true); }, function () {}); });
     $('acctPassInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('acctSignIn').click(); });
     window.addEventListener('cozy:saved', schedulePush);
     document.addEventListener('visibilitychange', function () { if (document.hidden) flush(); });
