@@ -89,7 +89,9 @@
     var raw = localRaw(), fp = fingerprint(raw);
     if (!force && fp === lastPushed) return Promise.resolve();
     var now = Date.now(), s = parse(raw), sum = summary(s);
-    return docRef().set({ save: raw, updatedAt: now, coins: sum.coins, level: sum.level, version: 1 })
+    var data = { save: raw, updatedAt: now, coins: sum.coins, level: sum.level, version: 1 };
+    if (s.signInBonus) data.bonusGiven = true;
+    return docRef().set(data, { merge: true })
       .then(function () {
         lastPushed = fp;
         var m = readMeta(); m.uid = user.uid; m.syncedAt = now; m.dirty = false; writeMeta(m);
@@ -113,13 +115,21 @@
   }
   function keepLocal() { var m = readMeta(); m.uid = user.uid; writeMeta(m); return push(true); }
 
+  // 50 coins the first time an account signs in. Remembered both in the save and on the
+  // account itself, so signing out and back in (or switching devices) can't repeat it.
+  function grantBonus(cloud) {
+    if (!window.CozyApp || !CozyApp.grantOnce) return;
+    if (cloud && cloud.bonusGiven) return;
+    if (CozyApp.grantOnce('signInBonus', 50, '🎁 +50 coins for signing in! Welcome!')) { clearTimeout(pushTimer); push(true); }
+  }
+
   function askChoice(cloud) {
     busy = true; show('acctChoose'); $('accountModal').hidden = false; setMsg('');
     var a = summary(parse(localRaw())), b = summary(parse(cloud.save));
     $('chooseLocal').querySelector('small').textContent = 'Level ' + a.level + ' · ' + a.coins + ' coins · ' + a.done + ' tasks done';
     $('chooseCloud').querySelector('small').textContent = 'Level ' + b.level + ' · ' + b.coins + ' coins · ' + b.done + ' tasks done';
     $('chooseCloud').onclick = function () { busy = false; adopt(cloud.save, cloud.updatedAt); };
-    $('chooseLocal').onclick = function () { busy = false; keepLocal().then(function () { render(); toast('This device\'s progress is now saved to your account!'); }); };
+    $('chooseLocal').onclick = function () { busy = false; keepLocal().then(function () { render(); toast('This device\'s progress is now saved to your account!'); grantBonus(cloud); }); };
   }
 
   function onSignedIn() {
@@ -127,17 +137,17 @@
     return docRef().get().then(function (snap) {
       var cloud = snap.exists ? snap.data() : null;
       var local = parse(localRaw());
-      if (m.justLoaded && m.uid === user.uid) { delete m.justLoaded; writeMeta(m); lastPushed = fingerprint(localRaw()); toast('Welcome back! Your saved progress is loaded.'); return; }
-      if (!cloud || !cloud.save) { return keepLocal().then(function () { toast('Signed in! Your progress is now saved online.'); }); }
+      if (m.justLoaded && m.uid === user.uid) { delete m.justLoaded; writeMeta(m); lastPushed = fingerprint(localRaw()); toast('Welcome back! Your saved progress is loaded.'); setTimeout(function () { grantBonus(cloud); }, 1800); return; }
+      if (!cloud || !cloud.save) { return keepLocal().then(function () { toast('Signed in! Your progress is now saved online.'); setTimeout(function () { grantBonus(cloud); }, 1800); }); }
       if (m.uid === user.uid) {
         // This device is already linked to the account.
         var cloudNewer = (cloud.updatedAt || 0) > (m.syncedAt || 0);
-        if (!cloudNewer) { lastPushed = fingerprint(cloud.save); return push(false); }
+        if (!cloudNewer) { lastPushed = fingerprint(cloud.save); grantBonus(cloud); return push(false); }
         if (!m.dirty) return adopt(cloud.save, cloud.updatedAt); // played on another device: pick that up
         return askChoice(cloud);
       }
       // First time this account is used on this device.
-      if (fingerprint(cloud.save) === fingerprint(localRaw())) { m.uid = user.uid; m.syncedAt = cloud.updatedAt; writeMeta(m); lastPushed = fingerprint(cloud.save); return; }
+      if (fingerprint(cloud.save) === fingerprint(localRaw())) { m.uid = user.uid; m.syncedAt = cloud.updatedAt; writeMeta(m); lastPushed = fingerprint(cloud.save); grantBonus(cloud); return; }
       if (isFresh(local)) return adopt(cloud.save, cloud.updatedAt);
       return askChoice(cloud);
     }).catch(function (e) {
