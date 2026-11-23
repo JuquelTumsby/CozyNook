@@ -15,7 +15,7 @@
 
   // Each track: tempo, swing, chords (one per bar), melody scale, drum feel, tone colour.
   var TRACKS = [
-    { name: 'Rainy Window', bpm: 72, swing: 0.18, rain: true, cutoff: 1800,
+    { name: 'Rainy Window', bpm: 72, swing: 0.18, cutoff: 1800,
       chords: ['F3 A3 C4 E4', 'E3 G3 B3 D4', 'D3 F3 A3 C4', 'C3 E3 G3 B3'], scale: 'A4 C5 D5 E5 G5', drums: 'soft' },
     { name: 'Midnight Cocoa', bpm: 78, swing: 0.22, cutoff: 1500,
       chords: ['D3 F3 A3 C4', 'G3 B3 D4 F4', 'C3 E3 G3 B3', 'A2 C3 E3 G3'], scale: 'D5 E5 G5 A5 C6', drums: 'lazy' },
@@ -42,11 +42,7 @@
     lofi.connect(comp); comp.connect(master); master.connect(ctx.destination);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     var d = noiseBuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    // vinyl crackle: quiet hiss with tiny pops
-    var cb = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate), cd = cb.getChannelData(0);
-    for (var j = 0; j < cd.length; j++) cd[j] = (Math.random() * 2 - 1) * 0.012 + (Math.random() < 0.0004 ? (Math.random() * 2 - 1) * 0.5 : 0);
-    crackle = ctx.createBufferSource(); crackle.buffer = cb; crackle.loop = true;
-    var cg = ctx.createGain(); cg.gain.value = 0.5; crackle.connect(cg); cg.connect(master); crackle.start();
+
   }
 
   function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
@@ -90,8 +86,8 @@
     if (pos === 8) { bass(ch[0], t, beat * 1.2); if (!tr.sparse) ch.slice(1).forEach(function (n, i) { keys(n, t + i * 0.02, beat * 1.5, 0.045); }); }
     var feel = tr.drums;
     if (pos === 0 || (pos === 10 && feel !== 'soft') || (pos === 7 && feel === 'bouncy')) kick(t, feel === 'soft' ? 0.7 : 1);
-    if (pos === 4 || pos === 12) noiseHit(t, 'bandpass', 1800, feel === 'soft' ? 0.12 : 0.18, 0.16);
-    if (pos % 2 === 0 && !(tr.sparse && pos % 4)) noiseHit(t, 'highpass', 7000, pos % 4 ? 0.025 : 0.04, 0.04);
+    if (pos === 4 || pos === 12) noiseHit(t, 'bandpass', 1200, feel === 'soft' ? 0.06 : 0.09, 0.09);
+    if (pos % 4 === 2 && !tr.sparse) noiseHit(t, 'bandpass', 5200, 0.012, 0.025);
     if ((pos === 2 || pos === 6 || pos === 10 || pos === 14) && Math.random() < (tr.sparse ? 0.22 : 0.35)) {
       var sc = tr.scale.split(' ').map(N); keys(sc[Math.floor(Math.random() * sc.length)], t, beat * 1.4, 0.06);
     }
@@ -110,7 +106,6 @@
     if (ctx.state === 'suspended') ctx.resume();
     var tr = TRACKS[trackIdx];
     lofi.frequency.setTargetAtTime(tr.cutoff, ctx.currentTime, 0.3);
-    startRain(!!tr.rain);
     master.gain.setTargetAtTime(volume * 1.4, ctx.currentTime, 0.2);
     step = 0; nextTime = ctx.currentTime + 0.08;
     clearInterval(timer); timer = setInterval(scheduler, 25); scheduler();
