@@ -605,6 +605,7 @@
     set('roomBed', b.x, b.y, b.w, b.h);
     set('roomComputer', ROOM.computer.x + d[0], ROOM.computer.y + d[1], ROOM.computer.w, ROOM.computer.h);
     set('roomLamp', ROOM.lamp.x + d[0] - 2, ROOM.lamp.y + d[1], ROOM.lamp.w + 4, ROOM.lamp.h + 2);
+    var w = piecePos('window'); set('roomWindow', w.x + 6, w.y + 6, w.w - 12, w.h - 10);
   }
 
   var pieceAlpha = null;
@@ -853,7 +854,25 @@
     tick();
   }
 
+  // A full character drawn with any look (used for other players in the explore world).
+  var figureCache = {};
+  function figureCanvas(lk, step) {
+    if (!ready()) return null;
+    var key = JSON.stringify(lk) + '|' + (step || 0);
+    if (figureCache[key]) return figureCache[key];
+    var c = document.createElement('canvas'); c.width = CW; c.height = CH;
+    var saved = look;
+    look = Object.assign({ gender: 'girl', emote: 'happy', outfitStyle: 'hoodie', hairStyle: 'default', accessory: 'none' }, lk || {});
+    drawCharacter(c.getContext('2d'), 0, 0, false, 0, step || 0);
+    look = saved;
+    var keys = Object.keys(figureCache); if (keys.length > 200) delete figureCache[keys[0]];
+    return (figureCache[key] = c);
+  }
+
   window.CozySprites = {
+    figureCanvas: figureCanvas, emoteIcon: function (ctx, emote, x, y) { if (ready()) drawIcon(ctx, emote, x, y); },
+    isReady: function () { return ready(); }, whenReady: function (fn) { if (ready()) fn(); else onReady.push(fn); },
+    FIG: [CW, CH, FEET],
     setLook: setLook, portrait: portrait, fillPreviews: fillPreviews,
     figure: function (el) { previewInto(el, {}, 'full'); },
     catMood: function () { return cat.mode; }, catPreview: catPreview, petCat: petCat, hop: hopCharacter,

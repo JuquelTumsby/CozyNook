@@ -209,6 +209,8 @@
       .then(function () {
         firebase.initializeApp(FIREBASE_CONFIG);
         auth = firebase.auth(); db = firebase.firestore();
+        // Local testing only: talk to the Firebase emulators instead of the real project.
+        if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]emu=1/.test(location.search)) { auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true }); db.useEmulator('127.0.0.1', 8080); }
         auth.onAuthStateChanged(function (u) {
           var was = user; user = u; ready = true;
           if (u && (!was || was.uid !== u.uid)) {
@@ -220,5 +222,5 @@
       .catch(function (e) { console.warn('CozyNook: online saving unavailable', e && e.message); failed = true; ready = true; render(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.CozyCloud = { open: open, isSignedIn: function () { return !!user; } };
+  window.CozyCloud = { open: open, isSignedIn: function () { return !!user; }, user: function () { return user; } };
 })();
