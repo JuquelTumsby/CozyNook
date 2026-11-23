@@ -301,9 +301,20 @@
       host.style.zIndex = '8';
       cat.inBed = true;
     } else {
-      host.style.left = ''; host.style.bottom = ''; host.style.zIndex = '';
+      host.style.zIndex = '';
       cat.inBed = false;
+      applyCatHome();
     }
+  }
+
+  // Where the player put the cat (room pixels: centre x, feet y), or null for the default spot.
+  var catHome = null, CAT_BELOW_FEET = CAT_H - CAT_OY - CAT_FEET;
+  function applyCatHome() {
+    var host = document.getElementById('sleepyCat');
+    if (!host || cat.inBed) return;
+    if (!catHome) { host.style.left = ''; host.style.bottom = ''; return; }
+    host.style.left = (catHome[0] / ROOM_W * 100).toFixed(3) + '%';
+    host.style.bottom = ((ROOM_H - (catHome[1] + CAT_BELOW_FEET)) / ROOM_H * 100).toFixed(3) + '%';
   }
 
   function petCat() {
@@ -693,6 +704,70 @@
     room.addEventListener('contextmenu', function (e) { if (drag) e.preventDefault(); });
   }
 
+  // Pick up the cat or the character and put them somewhere else (same feel as furniture:
+  // mouse drag, or press-and-hold on phones). A quick click still pets the cat.
+  var CREATURE_X = [24, 296], CREATURE_FEET = [FEET_MIN, 174];
+  function clampFeet(x, y) {
+    return [Math.round(Math.max(CREATURE_X[0], Math.min(CREATURE_X[1], x))), Math.round(Math.max(CREATURE_FEET[0], Math.min(CREATURE_FEET[1], y)))];
+  }
+  function initCreatureDrag(room, canvas) {
+    var drag = null, swallowClick = false;
+    var startDrag = function () {
+      drag.active = true;
+      drag.el.classList.add('is-carried');
+      room.classList.add('is-moving-furniture');
+      if (drag.who === 'cat') { if (cat.inBed) { cat.mode = 'sit'; cat.since = performance.now(); cat.until = cat.since + 20000; moveCatToBed(false); } }
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
+    };
+    var place = function (pos) {
+      if (drag.who === 'cat') { catHome = pos; applyCatHome(); placeWalker(); }
+      else { walker.x = walker.target = pos[0]; walker.y = walker.targetY = pos[1]; placeWalker(); }
+    };
+    room.addEventListener('pointerdown', function (e) {
+      if (e.button > 0) return;
+      var el = e.target.closest('#sleepyCat, #roomCharacter');
+      if (!el) return;
+      var who = el.id === 'sleepyCat' ? 'cat' : 'me';
+      var cr = canvas.getBoundingClientRect(), er = el.getBoundingClientRect(), scale = cr.width / ROOM_W;
+      var start = who === 'cat'
+        ? [(er.left + er.width / 2 - cr.left) / scale, (er.bottom - cr.top) / scale - CAT_BELOW_FEET]
+        : [walker.x, walker.y];
+      drag = { el: el, who: who, id: e.pointerId, sx: e.clientX, sy: e.clientY, start: start, scale: scale, active: false, touch: e.pointerType !== 'mouse' };
+      if (drag.touch) drag.timer = setTimeout(function () { if (drag) startDrag(); }, 280);
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var mx = e.clientX - drag.sx, my = e.clientY - drag.sy;
+      if (!drag.active) {
+        if (Math.abs(mx) + Math.abs(my) < 6) return;
+        if (drag.touch) { clearTimeout(drag.timer); drag = null; return; }   // it was a scroll
+        startDrag();
+      }
+      place(clampFeet(drag.start[0] + mx / drag.scale, drag.start[1] + my / drag.scale));
+    });
+    room.addEventListener('touchmove', function (e) { if (drag && drag.active) e.preventDefault(); }, { passive: false });
+    var finish = function (e) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      clearTimeout(drag.timer);
+      if (drag.active) {
+        swallowClick = true;
+        setTimeout(function () { swallowClick = false; }, 350);
+        drag.el.classList.remove('is-carried');
+        room.classList.remove('is-moving-furniture');
+        var pos = drag.who === 'cat' ? catHome.slice() : [Math.round(walker.x), Math.round(walker.y)];
+        if (drag.who === 'me') { walker.restUntil = performance.now() + 20000; }   // stay put for a while, then stroll again
+        document.dispatchEvent(new CustomEvent('cozy:creature', { detail: { who: drag.who, pos: pos } }));
+      }
+      drag = null;
+    };
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', function (e) {
+      if (drag && drag.active) finish(e); else if (drag) { clearTimeout(drag.timer); drag = null; }
+    });
+    room.addEventListener('click', function (e) { if (swallowClick) { e.stopPropagation(); e.preventDefault(); swallowClick = false; } }, true);
+    room.addEventListener('contextmenu', function (e) { if (drag) e.preventDefault(); });
+  }
+
   function watchRoom() {
     var c = document.getElementById('roomCanvas');
     var room = c && c.closest('.room');
@@ -700,6 +775,7 @@
     room._cozyWatched = true;
     new MutationObserver(renderRoom).observe(room, { attributes: true, attributeFilter: ['class'] });
     initFurnitureDrag(room, c);
+    initCreatureDrag(room, c);
     var lamp = document.getElementById('roomLamp');
     var toggle = function () { var b = document.getElementById('lampToggle'); if (b) b.click(); };
     if (lamp) {
@@ -766,6 +842,12 @@
     Object.keys(lay).forEach(function (k) {
       if (MOVABLE[k] && Array.isArray(lay[k]) && ROOM && ROOM.pieces) roomLayout[k] = clampOffset(k, +lay[k][0] || 0, +lay[k][1] || 0);
     });
+    catHome = Array.isArray(st.catPos) ? clampFeet(+st.catPos[0] || 0, +st.catPos[1] || 0) : null;
+    applyCatHome();
+    if (Array.isArray(st.charPos) && !walker.fromSave) {
+      var cp = clampFeet(+st.charPos[0] || 0, +st.charPos[1] || 0);
+      walker.x = walker.target = cp[0]; walker.y = walker.targetY = cp[1]; walker.fromSave = true; walker.placed = false;
+    }
     watchRoom();
     renderRoom();
     tick();
