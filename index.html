@@ -333,6 +333,18 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
 .reminder-row input[type=time]{flex:0 0 auto;width:auto}
 .welcome-back{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(24,14,48,.62)}
 .welcome-back[hidden]{display:none}
+.cal-wrap{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px}.cal-nav b{flex:1;text-align:center;font:900 17px 'Pixelify Sans',Nunito,sans-serif;color:#4b3a7a}.cal-arrow{width:34px;height:34px;background:#efe7fb;border:2px solid #302b46!important;border-radius:6px;box-shadow:0 2px 0 #302b46;font-size:13px}.cal-today-btn{padding:6px 10px!important}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal-dow{text-align:center;font-size:11px;font-weight:900;color:#7a6d96;padding:2px 0}
+.cal-day{position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 2px;background:#fffdf8;border:2px solid #e3d8f3!important;border-radius:6px;font-weight:900;color:#302b46;min-height:40px}
+.cal-day:hover{border-color:#a68bdc!important}.cal-day.past{opacity:.6}.cal-day.today{border-color:#23b985!important;background:#e9fbf2}.cal-day.selected{border-color:#302b46!important;background:#ffe3ef;box-shadow:0 2px 0 #302b46}
+.cal-day.all-done .cal-num:after{content:" ✓";color:#23b985}.cal-num{font-size:13px}.cal-dots{display:flex;gap:2px;min-height:6px}.cal-dots i{width:6px;height:6px;border-radius:50%;border:1px solid #302b4680}.cal-dots em{font-size:9px;font-style:normal;line-height:6px}
+.cal-day-title{font:900 16px 'Pixelify Sans',Nunito,sans-serif;color:#4b3a7a;margin:4px 0 8px}
+.cal-plan{display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:6px;background:#fffdf8;border:2px solid #e3d8f3;border-left:6px solid #ff9cba;border-radius:6px}.cal-plan input{width:17px;height:17px;accent-color:#23b985}.cal-plan .cal-time{font-size:11px;font-weight:900;color:#7a6d96;white-space:nowrap}.cal-plan .cal-text{flex:1;font-weight:800;font-size:13px;overflow-wrap:anywhere}.cal-plan.done .cal-text{text-decoration:line-through;color:#ad9c8e}
+.cal-add{display:flex;flex-direction:column;gap:6px;margin-top:8px}.cal-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cal-add-row input[type=time]{width:120px;flex:none}.cal-colors{display:flex;gap:4px;flex:1}
+.cal-color{width:24px;height:24px;border-radius:50%;border:2px solid #302b46!important;padding:0}.cal-color.on{box-shadow:0 0 0 3px #fff,0 0 0 5px #302b46}
+@media(max-width:760px){.cal-wrap{grid-template-columns:1fr}.cal-day{min-height:38px}}
+
 .acct-pid{font-size:13px;font-weight:800}.acct-pid b{font-family:monospace;font-size:15px;letter-spacing:1px}
 .gift-box{text-align:center;font-size:48px;animation:tipbob 1.4s ease-in-out infinite}.gift-what{font:900 16px Nunito,sans-serif;color:#145a3c;background:#dcf7e9;border:2px solid #302b46;border-radius:6px;padding:8px}
 #giftPopup h3{text-align:center}.ga-card{text-align:left!important}.ga-card h3{text-align:center}.ga-to{display:flex;gap:16px;justify-content:center;font-weight:900;margin:6px 0}.ga-find{display:flex;gap:6px}.ga-find .text-input{flex:1;font-size:15px}.ga-found{font-size:12px!important;color:#5c4f78;margin:6px 0 10px!important}
@@ -439,6 +451,7 @@ body.exploring .music-player{z-index:70}
       <section class="view" id="view-planner">
         <div class="welcome"><div><h2>Your planner <span class="px-icon i-planner" aria-hidden="true"></span></h2><p>Turn big things into little steps.</p></div></div>
         <div class="panel"><div class="panel-head"><h3>Today's tasks</h3><span class="subtle">Complete a task to earn 10 coins + 15 XP</span></div><div id="taskList"></div><div class="add-row"><input id="taskInput" placeholder="Add a little task..." maxlength="70"><button class="primary-btn" id="addTask">+ Add</button></div></div>
+        <div class="panel cal-panel"><div class="panel-head"><h3><span class="px-icon i-planner" aria-hidden="true"></span> My calendar</h3><span class="subtle">Tap a day to plan it · finish a plan for 5 coins + 10 XP</span></div><div class="cal-wrap"><div class="cal-month"><div class="cal-nav"><button type="button" class="cal-arrow" id="calPrev" aria-label="Previous month">◀</button><b id="calTitle"></b><button type="button" class="cal-arrow" id="calNext" aria-label="Next month">▶</button><button type="button" class="soft-btn cal-today-btn" id="calToday">Today</button></div><div class="cal-grid" id="calGrid"></div></div><div class="cal-side"><h4 class="cal-day-title" id="calDayTitle"></h4><div id="calList"></div><div class="cal-add"><input class="text-input" id="calText" maxlength="60" placeholder="Add a plan..."><div class="cal-add-row"><input class="text-input" type="time" id="calTime" aria-label="Time (optional)"><div class="cal-colors" id="calColors"></div><button class="primary-btn" id="calAdd" type="button">+ Add</button></div></div></div></div></div>
         <div class="panel reminder-panel"><div class="panel-head"><h3><span class="px-icon i-moon" aria-hidden="true"></span>Daily reminder</h3></div><p class="subtle">Get a little nudge about your tasks from <b class="cat-name-inline">Mochi</b>.</p><div class="reminder-row"><label for="reminderTime">Remind me at</label><input type="time" id="reminderTime" class="text-input" value="18:00"><button class="primary-btn" id="reminderToggle" type="button">Turn on reminders</button></div><p class="subtle" id="reminderStatus" aria-live="polite"></p></div>
       </section>
       <section class="view" id="view-focus">
@@ -687,7 +700,7 @@ body.exploring .music-player{z-index:70}
   function renderCatName(){const n=catName();if($('catNameLabel'))$('catNameLabel').textContent=n;document.querySelectorAll('.cat-name-inline').forEach(e=>e.textContent=n);const inp=$('catNameInput');if(inp&&document.activeElement!==inp)inp.value=n;const c=$('sleepyCat');if(c)c.setAttribute('aria-label','Pet '+n);}
   function saveCatName(){const v=($('catNameInput').value||'').replace(/[<>]/g,'').trim().slice(0,16);if(!v){toast('Give your cat a name first!');return;}state.catName=v;save();renderCatName();toast(v+' loves their new name! 🐾');}
   if($('saveCatName')){$('saveCatName').onclick=saveCatName;$('catNameInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveCatName();});}
-  const tasksLeft=()=>state.tasks.filter(t=>!t.done).length;
+  const tasksLeft=()=>state.tasks.filter(t=>!t.done).length+(window.CozyCalendar?CozyCalendar.leftToday():0);
   function quietSave(){if(CozyApp.lock)return;try{localStorage.setItem('cozynook-save',JSON.stringify(state));window.dispatchEvent(new Event('cozy:saved'));}catch(e){}}
   function showWelcome(title){const n=catName(),left=tasksLeft();$('wbTitle').textContent=title||(n+' was waiting for you!');$('wbText').textContent=left?('You have '+left+' little task'+(left===1?'':'s')+' left. Want to do one together?'):('All your tasks are done. '+n+' is so proud of you!');const box=$('wbCat');if(box&&window.CozySprites){box.innerHTML='';box.appendChild(CozySprites.catPreview(state.catCoat||'ginger'));}$('wbSignIn').hidden=!!(window.CozyCloud&&CozyCloud.isSignedIn());$('welcomeBack').hidden=false;setTimeout(()=>$('wbClose').focus(),50);}
   function hideWelcome(){$('welcomeBack').hidden=true;}
@@ -756,6 +769,7 @@ body.exploring .music-player{z-index:70}
 </script>
 
 <script src="assets/music.js?v=20261123g"></script>
+<script src="assets/calendar.js?v=20261123j"></script>
 <script src="assets/games/words.js?v=20261123f"></script>
 <script src="assets/games.js?v=20261123f"></script>
 <script src="assets/explore.js?v=20261123f"></script>
