@@ -333,6 +333,18 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
 .reminder-row input[type=time]{flex:0 0 auto;width:auto}
 .welcome-back{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(24,14,48,.62)}
 .welcome-back[hidden]{display:none}
+.music-player{position:fixed;left:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:0;background:#fff8ec;border:3px solid #302b46;border-radius:10px;box-shadow:4px 4px 0 #302b4680;max-width:calc(100vw - 32px)}
+.music-toggle{width:52px;height:52px;display:grid;place-items:center;background:#a68bdc;border-radius:7px 0 0 7px;color:#fff;font:900 24px Nunito,sans-serif;position:relative}.music-player:not(.open) .music-toggle{border-radius:7px}
+.music-toggle .eq{display:none;position:absolute;bottom:7px;gap:2px;align-items:flex-end;height:12px}.music-toggle .eq i{width:3px;background:#fff;animation:eq .8s ease-in-out infinite}.music-toggle .eq i:nth-child(2){animation-delay:.2s}.music-toggle .eq i:nth-child(3){animation-delay:.4s}
+.music-player.is-playing .music-toggle .eq{display:flex}.music-player.is-playing .music-note{transform:translateY(-5px);font-size:18px}
+@keyframes eq{0%,100%{height:3px}50%{height:12px}}
+.music-body{display:none;align-items:center;gap:12px;padding:6px 12px}.music-player.open .music-body{display:flex}
+.music-info{display:flex;flex-direction:column;min-width:120px}.music-info b{font:900 14px Nunito,sans-serif;color:#302b46;white-space:nowrap}.music-info small{font-size:11px;font-weight:800;color:#7a6d96}
+.music-ctrls{display:flex;gap:6px}.music-ctrls button{width:36px;height:36px;border:2px solid #302b46!important;border-radius:6px;background:#efe7fb;box-shadow:0 2px 0 #302b46;font-size:14px;color:#302b46}.music-ctrls .music-play{background:#23b985;color:#fff}.music-ctrls button:active{transform:translateY(2px);box-shadow:none}
+.music-vol{display:flex;align-items:center;gap:4px}.music-vol input{width:80px;accent-color:#a68bdc}
+@media(max-width:1060px){.music-player{bottom:96px;left:10px}}
+@media(max-width:520px){.music-player{bottom:92px}.music-vol{display:none}.music-info{min-width:0;max-width:110px}.music-info b{overflow:hidden;text-overflow:ellipsis}.music-toggle{width:46px;height:46px}}
+
 .garden-plot .grow-bar{width:80%;height:10px;background:#e8dff5;border:2px solid #302b46;border-radius:4px;overflow:hidden}.garden-plot .grow-bar i{display:block;height:100%;background:linear-gradient(90deg,#7fd6a8,#23b985);transition:width 1s linear}
 .garden-plot .grow-left{font-variant-numeric:tabular-nums;color:#145a3c}.garden-plot button:disabled{opacity:.6;cursor:not-allowed;filter:grayscale(.5)}
 .garden-plot.is-growing .garden-sprite{animation:sway 2.4s ease-in-out infinite;transform-origin:50% 90%}@keyframes sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
@@ -409,6 +421,7 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
       <section class="view" id="view-focus">
         <div class="welcome"><div><h2>Focus Mode <span class="px-icon i-focus" aria-hidden="true"></span></h2><p>One thing at a time. You've got this.</p></div></div>
         <div class="panel" style="max-width:650px;margin:auto"><div class="timer-face"><div style="font-size:42px"><span class="px-icon i-cup" aria-hidden="true"></span></div><div class="subtle">A QUIET MOMENT FOR YOU</div><div class="timer-time" id="focusTimer">25:00</div><div class="subtle" id="timerStatus">Ready when you are</div><div class="timer-actions"><button class="primary-btn" id="startTimer">▶ Start</button><button class="soft-btn" id="resetTimer">↺ Reset</button></div><div class="progress"><i id="timerBar"></i></div></div><div style="margin-top:16px"><div class="panel-head"><h3>Choose your session</h3><span class="subtle">Minutes</span></div><div class="room-controls"><button class="soft-btn duration" data-min="15">15 min</button><button class="soft-btn duration" data-min="25">25 min</button><button class="soft-btn duration" data-min="45">45 min</button><button class="soft-btn duration" data-min="60">60 min</button></div></div><p class="subtle" style="text-align:center;margin-top:16px">Finish a session to earn 20 coins and 25 XP. Remember to take breaks!</p></div>
+        <div class="panel music-panel" style="max-width:650px;margin:auto"><div class="panel-head"><h3><span class="px-icon i-sparkle mini" aria-hidden="true"></span> Study Vibes</h3><span class="subtle">Calm lo-fi beats</span></div><p class="games-sub">Soft music to help you focus. It keeps playing when you switch pages. Use the ♪ button in the corner to pause or skip.</p><div style="text-align:center"><button class="primary-btn" id="focusMusicBtn" type="button">Play study music</button></div></div>
       </section>
       <section class="view" id="view-garden">
         <div class="welcome"><div><h2>Your little garden <span class="px-icon i-garden" aria-hidden="true"></span></h2><p>Plant a seed, give it care, and watch it grow.</p></div></div>
@@ -451,6 +464,7 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
   <div class="footer">Made with <span class="px-icon i-heart" aria-hidden="true"></span> and a little bit of pixel magic · CozyNook</div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="music-player" id="musicPlayer"><button class="music-toggle" id="musicToggle" type="button" aria-label="Study music"><span class="music-note" aria-hidden="true">♪</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="music-body"><div class="music-info"><b id="musicTitle">Rainy Window</b><small><span id="musicNum">1 / 5</span> · Study Vibes</small></div><div class="music-ctrls"><button type="button" id="musicPrev" aria-label="Previous track">⏮</button><button type="button" id="musicPlay" class="music-play" aria-label="Play music">▶</button><button type="button" id="musicNext" aria-label="Skip to next track">⏭</button></div><label class="music-vol"><span aria-hidden="true">🔈</span><input type="range" id="musicVol" min="0" max="100" value="60" aria-label="Music volume"></label></div></div>
 <div class="welcome-back" id="welcomeBack" hidden role="dialog" aria-modal="true" aria-labelledby="wbTitle"><div class="panel wb-card"><div class="wb-cat" id="wbCat"></div><h3 id="wbTitle">Welcome back!</h3><p id="wbText"></p><div class="wb-actions"><button class="primary-btn" id="wbPlanner" type="button"><span class="px-icon i-planner mini" aria-hidden="true"></span>See my tasks</button><button class="soft-btn" id="wbClose" type="button"><span>Hi <span class="cat-name-inline">Mochi</span>!</span><span class="px-icon i-heart mini" aria-hidden="true"></span></button></div><button class="acct-link" id="wbSignIn" type="button" hidden>Sign in so you never lose your room</button></div></div>
 <div class="welcome-back" id="accountModal" hidden role="dialog" aria-modal="true" aria-labelledby="acctTitle"><div class="panel wb-card acct-card"><button class="acct-x" id="acctClose" type="button" aria-label="Close">✕</button>
 <div id="acctWait"><h3 id="acctTitle">My account</h3><p>Getting things ready…</p></div>
@@ -706,6 +720,7 @@ input[type=checkbox]:checked{background:#6ccf9c;box-shadow:inset 3px 3px 0 #a8e8
 })();
 </script>
 
+<script src="assets/music.js?v=20261123f"></script>
 <script src="assets/games/words.js?v=20261123e"></script>
 <script src="assets/games.js?v=20261123e"></script>
 <script src="assets/cloud.js?v=20261123e"></script>
