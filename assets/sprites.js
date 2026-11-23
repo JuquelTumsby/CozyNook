@@ -426,7 +426,7 @@
         if (roomLoaded >= ROOM_PARTS) { roomWaiters.splice(0).forEach(function (f) { f(); }); }
         renderRoom();
       };
-      img.src = 'assets/room/' + name + '.png';
+      img.src = 'assets/room/' + name + '.png?v=20261123k';   // bump when the room art changes
       roomImgs[name] = img;
     });
   }
@@ -507,27 +507,44 @@
 
   function drawBlanket(ctx) {
     var B = ROOM.blanket, base = roomLook.blanket || '#d5b6d9';
-    var pal = { base: base, light: light(base, 0.45), shade: shade(base, 0.2), dark: shade(base, 0.38), fold: '#fbf6ff' };
-    var x0 = B.x, x1 = B.x + B.w - 1, top = B.y, edge = B.y + (B.top || 5), foldH = 5;
+    var pal = { base: base, light: light(base, 0.45), shade: shade(base, 0.2), dark: shade(base, 0.38), fold: '#fbf6ff', foldShade: '#e3d8ee' };
+    var OUT = '#3a2630', x0 = B.x, x1 = B.x + B.w - 1, top = B.y, edge = B.y + (B.top || 5), FOLD = 7;
+    var bottomAt = function (x) { return B.y + B.h - 2 + ((x >> 2) & 1); };          // scalloped hem
+    // soft vertical folds where the blanket hangs over the side of the bed
+    var foldLine = function (x, y) { var k = (x - x0 - FOLD - 6) % 14; return y > edge + 1 && (k === 0 || (k === 1 && y > edge + 6)); };
+    var px = function (x, y, c) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
     for (var x = x0; x <= x1; x++) {
-      var yb = B.y + B.h - 2 + ((x >> 2) & 1);       // scalloped bottom hem
+      var yb = bottomAt(x);
       for (var y = top; y <= yb; y++) {
-        var c;
-        if (x === x0 || x === x1 || y === top || y === yb) c = '#3a2630';
-        else if (y - top <= foldH) c = y - top === foldH ? pal.dark : (y - top === 1 ? '#ffffff' : pal.fold);   // folded-back sheet
-        else if (y === edge) c = pal.dark;                 // edge of the mattress
+        var c, lx = x - x0;
+        // rounded corners (top-right and bottom-right of the blanket)
+        var tr = x >= x1 - 2 && y <= top + 2 && (x1 - x) + (y - top) < 3;
+        var br = x >= x1 - 2 && y >= yb - 2 && (x1 - x) + (yb - y) < 3;
+        if (tr || br) continue;
+        var onEdge = x === x0 || x === x1 || y === top || y === yb ||
+          (x >= x1 - 2 && y <= top + 2 && (x1 - x) + (y - top) === 3) || (x >= x1 - 2 && y >= yb - 2 && (x1 - x) + (yb - y) === 3);
+        if (onEdge) c = OUT;
+        else if (lx <= FOLD) {                                   // turned-down sheet at the pillow end
+          c = lx === FOLD ? pal.dark : (lx === 1 ? '#ffffff' : (y > edge ? pal.foldShade : pal.fold));
+          if (y === edge && lx < FOLD) c = pal.foldShade;
+        }
+        else if (y === edge) c = pal.dark;                       // edge where the top meets the side
         else {
           c = blanketColour(x, y, B, pal, roomLook.pattern);
-          if (y > edge) {                                   // front of the bed: in shadow
+          if (y > edge) {                                         // the side hangs down, in shadow
             c = c === pal.base ? pal.shade : (c === pal.light ? pal.base : c);
-          } else if (x >= x1 - 1) c = c === pal.base ? pal.shade : c;
+            if (foldLine(x, y)) c = pal.dark;
+          } else {
+            if (y === top + 1) c = c === pal.base ? pal.light : c;          // light on the far edge
+            if (x >= x1 - 1) c = c === pal.base ? pal.shade : c;
+          }
         }
-        ctx.fillStyle = c;
-        ctx.fillRect(x, y, 1, 1);
+        px(x, y, c);
       }
     }
+    // a couple of soft wrinkles on top
     ctx.fillStyle = pal.shade;
-    [[x0 + 20, top + 10], [x0 + 21, top + 11], [x0 + 48, top + 14], [x0 + 49, top + 15]].forEach(function (p) { ctx.fillRect(p[0], p[1], 3, 1); });
+    [[x0 + 22, top + 9, 4], [x0 + 24, top + 10, 3], [x0 + 46, top + 14, 4], [x0 + 48, top + 15, 3]].forEach(function (p) { ctx.fillRect(p[0], p[1], p[2], 1); });
   }
 
   // Night: purple dusk tint, warm lamp light and a patch of moonlight.

@@ -423,30 +423,63 @@ def door(c):
 
 
 BED = {'x': 22, 'y': 50, 'w': 120, 'h': 68}
-BLANKET = {'x': 58, 'y': 74, 'w': 76, 'h': 37, 'top': 22, 'fold': 'left'}
+BLANKET = {'x': 57, 'y': 73, 'w': 76, 'h': 38, 'top': 23, 'fold': 'left'}
 
 
 def bed(c):
-    """The bed sits sideways along the back wall, pillow end on the left."""
-    # headboard (left end)
-    c.box(24, 52, 12, 64, 'oak')
-    c.rect(23, 50, 14, 4, RAMP['oak'][3]); c.frame(22, 49, 16, 5, O)
-    c.frame(27, 60, 6, 44, RAMP['oak'][1]); c.vline(28, 61, 42, RAMP['oak'][3])
-    # mattress top
-    c.rect(36, 74, 98, 22, RAMP['sheet'][2]); c.frame(35, 73, 100, 24, O)
-    c.hline(36, 74, 98, RAMP['sheet'][3])
-    # front of the mattress + frame
-    c.rect(36, 96, 98, 10, RAMP['sheet'][1]); c.frame(35, 96, 100, 11, O)
-    c.box(35, 106, 102, 9, 'oak')
-    # footboard (right end, lower)
-    c.box(133, 80, 8, 36, 'oak')
-    c.rect(132, 78, 10, 3, RAMP['oak'][3]); c.frame(131, 77, 12, 4, O)
-    # legs
-    c.rect(37, 115, 5, 4, RAMP['oak'][0]); c.rect(128, 115, 5, 4, RAMP['oak'][0])
-    # pillow at the head end
-    c.ellipse(47, 83, 10, 7, '#ffffff', O)
-    c.hline(40, 87, 14, '#e9def3'); c.px(42, 79, '#ffffff'); c.px(41, 80, '#ffffff')
-    c.hline(43, 85, 6, '#e9def3')
+    """A cosy wooden bed seen from the side: arched, tufted headboard on the left,
+    fluffy pillows, a thick mattress and a lower footboard on the right.
+    (The blanket on top is drawn live by sprites.js so its colour can change.)"""
+    wd, ws, wb, wl = RAMP['oak']
+    cu = ('#8e6f9e', '#b597c4', '#d8c2e3', '#efe3f5')       # soft cushion fabric
+    # soft shadow on the floor
+    c.shadow(40, 113, 96, 4, 80)
+    # ---- headboard: two posts with round knobs and an arched cushion panel between them
+    for px_ in (22, 36):
+        c.box(px_, 54, 6, 63, 'oak')
+        c.ellipse(px_ + 2, 51, 3, 2, wb, O); c.px(px_ + 1, 50, wl)
+    # arched top rail
+    for k in range(10):
+        yy = 55 - round(4 * (1 - ((k - 4.5) / 5) ** 2))
+        c.vline(28 + k, yy, 3, wb); c.px(28 + k, yy - 1, O); c.px(28 + k, yy, wl)
+    # cushion panel with buttons
+    c.rect(28, 58, 8, 36, cu[2]); c.frame(27, 57, 10, 38, O)
+    c.vline(28, 58, 36, cu[3]); c.vline(35, 58, 36, cu[1])
+    for by in (63, 71, 79, 87):
+        bx = 30 if (by // 8) % 2 else 33
+        c.px(bx, by, cu[0]); c.px(bx + 1, by + 1, cu[1]); c.px(bx - 1, by + 1, cu[1])
+    c.rect(28, 94, 8, 22, wb); c.vline(28, 94, 22, wl); c.frame(27, 94, 10, 23, O)
+    # ---- mattress: top surface (sheet) + thick front side
+    c.rect(38, 74, 96, 22, RAMP['sheet'][2]); c.frame(37, 73, 98, 24, O)
+    c.hline(38, 74, 96, RAMP['sheet'][3]); c.hline(38, 95, 96, RAMP['sheet'][1])
+    c.rect(38, 97, 96, 8, '#efe6f6'); c.frame(37, 96, 98, 10, O)
+    c.hline(38, 98, 96, '#ffffff')
+    for xx in range(41, 133, 6):               # quilted piping along the mattress side
+        c.px(xx, 101, RAMP['sheet'][1])
+    c.hline(38, 104, 96, RAMP['sheet'][1])
+    # ---- bed frame rail and legs
+    c.box(36, 105, 100, 8, 'oak')
+    c.hline(38, 107, 96, ws)
+    for lx in (39, 128):
+        c.rect(lx, 113, 5, 4, wd); c.vline(lx, 113, 4, ws)
+    # ---- footboard (lower) with knob
+    c.box(134, 82, 7, 35, 'oak')
+    c.ellipse(137, 79, 3, 2, wb, O); c.px(136, 78, wl)
+    c.frame(135, 88, 5, 20, ws)
+    # ---- two fluffy pillows at the head end (hand-drawn)
+    PILLOW = ['..OOOOOOOOOOOOO..',
+              '.OhhhwwwwwwwwwwO.',
+              'OhhwwwwwwwwwwwwsO',
+              'OhwwwwwwwwwwwwwsO',
+              'OwwwwwwwwwwwwwwsO',
+              'OwwwwcwwwwwcwwwsO',
+              'OwwwwwccccccwwwsO',
+              'OwwwwwwwwwwwwwssO',
+              'OswwwwwwwwwwwwssO',
+              '.OsssssssssssssO.',
+              '..OOOOOOOOOOOOO..']
+    c.sprite(39, 70, PILLOW, {'O': O, 'w': '#ece2f6', 'h': '#f8f3fc', 's': '#d2c3e3', 'c': '#ddd0ea'})
+    c.sprite(41, 79, PILLOW, {'O': O, 'w': '#ffffff', 'h': '#ffffff', 's': '#e2d8ee', 'c': '#ece4f4'})
 
 
 DESK = {'x': 196, 'y': 48, 'w': 74}
