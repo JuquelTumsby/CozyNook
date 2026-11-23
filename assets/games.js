@@ -205,6 +205,52 @@
     paintMatch();
   }
 
+  /* ======================= Paw Hunt ======================= */
+  // Five faint pixel paw prints hidden around a picture of the player's own room.
+  var PAWS = 5, paw = { found: 0, started: 0, spots: [], hintTimer: null };
+  function newPawHunt() {
+    var scene = $('pawScene'); if (!scene) return;
+    scene.innerHTML = '';
+    if (window.CozySprites && CozySprites.roomThumb) scene.appendChild(CozySprites.roomThumb(get('wallpaper', 'rose'), get('floorTheme', 'oak')));
+    var spots = [], tries = 0;
+    while (spots.length < PAWS && tries++ < 500) {
+      var x = 7 + Math.random() * 86, y = 12 + Math.random() * 78;
+      if (spots.every(function (q) { return Math.abs(q[0] - x) + Math.abs(q[1] - y) * 0.6 > 16; })) spots.push([x, y]);
+    }
+    paw.spots = spots.map(function (q, i) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'paw-spot';
+      b.style.left = q[0] + '%'; b.style.top = q[1] + '%';
+      b.setAttribute('aria-label', 'Paw print ' + (i + 1));
+      b.innerHTML = '<span class="px-icon i-paw" style="transform:rotate(' + Math.round(Math.random() * 80 - 40) + 'deg)" aria-hidden="true"></span>';
+      b.addEventListener('click', function () { findPaw(b); });
+      scene.appendChild(b); return b;
+    });
+    paw.found = 0; paw.started = Date.now();
+    $('pawScore').textContent = 'Found: 0 / ' + PAWS;
+    $('pawHint').hidden = true;
+    clearTimeout(paw.hintTimer); paw.hintTimer = setTimeout(function () { if (paw.found < PAWS) $('pawHint').hidden = false; }, 20000);
+    paintPawInfo();
+  }
+  function paintPawInfo() { var best = get('pawBest', 0); $('pawInfo').textContent = best ? 'Best time: ' + best + 's' : ''; }
+  function findPaw(b) {
+    if (b.classList.contains('found')) return;
+    b.classList.remove('hint'); b.classList.add('found'); b.disabled = true; paw.found++;
+    if (paw.found < PAWS) { $('pawScore').textContent = 'Found: ' + paw.found + ' / ' + PAWS; return; }
+    clearTimeout(paw.hintTimer); $('pawHint').hidden = true;
+    var secs = Math.max(1, Math.round((Date.now() - paw.started) / 1000)), best = get('pawBest', 0);
+    if (!best || secs < best) set('pawBest', secs);
+    $('pawScore').textContent = 'You found all ' + PAWS + ' in ' + secs + ' seconds. Lovely noticing! 💛';
+    paintPawInfo();
+    if (get('pawDay', '') !== todayKey()) { set('pawDay', todayKey()); setTimeout(function () { earn(5, 5, 'Paw Hunt complete! +5 coins 🐾'); }, 400); }
+  }
+  function pawHint() {
+    var left = paw.spots.filter(function (b) { return !b.classList.contains('found'); });
+    if (!left.length) return;
+    var b = left[Math.floor(Math.random() * left.length)];
+    b.classList.remove('hint'); void b.offsetWidth; b.classList.add('hint');
+    setTimeout(function () { b.classList.remove('hint'); }, 1900);
+  }
+
   /* ======================= Boot ======================= */
   function start() {
     if (!$('wordGame')) return;
@@ -212,6 +258,9 @@
     $('matchGrid').addEventListener('click', function (e) { var b = e.target.closest('.mt-card'); if (b) flip(+b.dataset.i); });
     $('matchNew').addEventListener('click', newMatch);
     newMatch();
+    $('pawStart').addEventListener('click', newPawHunt);
+    $('pawHint').addEventListener('click', pawHint);
+    newPawHunt();
     // a new day while the page is open -> new word
     setInterval(function () { if (word.answer !== todaysAnswer()) { loadWord(); paintWord(); } else if (word.done) paintWord(); }, 60000);
   }
